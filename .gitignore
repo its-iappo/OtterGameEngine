@@ -1,0 +1,39 @@
+#IDE Folders
+.vs/
+.idea/
+
+# Build folders
+build/
+bin/
+lib/
+
+# CMake files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Visual Studio
+*.sln
+*.vcxproj*
+*.user
+*.filters
+*.opensdf
+*.sdf
+*.ipch
+
+# Vcpkg
+vcpkg/
+vcpkg_installed/
+
+# Executables and debug
+*.exe
+*.pdb
+*.ilk
+*.obj
+*.log
+
+# Editor/IDE
+.vscode/
+.idea/
+*.code-workspace

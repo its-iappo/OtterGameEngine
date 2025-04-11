@@ -1,0 +1,11 @@
+{
+  "name": "ottergameengine",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "spdlog",
+    "glfw3",
+    "glm",
+    "vulkan"
+  ],
+  "builtin-baseline": "df8bfe519564ae001903e5cdd32af0999531ef71"
+}
