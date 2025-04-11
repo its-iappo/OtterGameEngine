@@ -1,18 +1,25 @@
-project(OtterStudioLib LANGUAGES CXX)
+add_library(OtterStudioLib STATIC)
 
-file(GLOB_RECURSE LIB_SOURCES CONFIGURE_DEPENDS
-    Definitions/*.cpp
+file(GLOB_RECURSE STUDIOLIB_HEADERS CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/Declarations/*.h
 )
 
-file(GLOB_RECURSE LIB_HEADERS CONFIGURE_DEPENDS
-    Declarations/*.h
+file(GLOB_RECURSE STUDIOLIB_SOURCES CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/Definitions/*.cpp
 )
 
-add_library(OtterStudioLib STATIC
-    ${LIB_SOURCES}
-    ${LIB_HEADERS}
+target_sources(OtterStudioLib
+    PRIVATE
+        ${STUDIOLIB_HEADERS}
+        ${STUDIOLIB_SOURCES}
 )
 
-target_include_directories(OtterStudioLib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/Declarations
+target_include_directories(OtterStudioLib
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/Declarations
+)
+
+target_link_libraries(OtterStudioLib
+    PUBLIC
+        OtterEngine
 )

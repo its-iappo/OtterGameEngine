@@ -1,10 +1,11 @@
-project(OtterStudio LANGUAGES CXX)
+add_executable(OtterStudio)
 
-add_executable(OtterStudio
-    StudioMain.cpp
+target_sources(OtterStudio
+    PRIVATE
+        StudioMain.cpp
 )
 
 target_link_libraries(OtterStudio
-    PRIVATE OtterStudioLib
-    PRIVATE OtterEngine
+    PRIVATE
+        OtterStudioLib
 )
