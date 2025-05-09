@@ -1,0 +1,51 @@
+# === BUILD FILES ===
+/out/
+/build/
+/CMakeFiles/
+/CMakeCache.txt
+**/cmake_install.cmake
+/Makefile
+/*.sln
+**/*.vcxproj*
+/*.user
+/*.opensdf
+/*.sdf
+
+# === VCPKG (local stuff) ===
+/vcpkg/
+/vcpkg_installed/
+/vcpkg_buildtrees/
+/vcpkg_packages/
+/vcpkg-*.log
+
+# === BINARIES ===
+*.exe
+*.lib
+*.dll
+*.pdb
+*.obj
+
+# === IDEs and SYSTEM FILES ===
+.vs/
+.vscode/
+.idea/
+*.DS_Store
+*.swp
+*.swo
+*.log
+*.bak
+
+# === USER CONFIG FILES ===
+*.user
+*.VC.db
+*.VC.opendb
+
+# === CMake Presets Cache ===
+CMakeUserPresets.json
+
+# === AUTO-GENERATED ===
+*.generated.*
+
+# === TEMP ===
+*.tmp
+*.temp

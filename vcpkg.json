@@ -1,0 +1,10 @@
+{
+  "name": "otterengine",
+  "version": "0.1.0",
+  "dependencies": [
+    "spdlog",
+    "glfw3",
+    "glm",
+    "vulkan"
+  ]
+}
