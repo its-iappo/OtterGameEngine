@@ -32,6 +32,9 @@ namespace OtterEngine {
 		VkRenderPass mRenderPass;
 		VkCommandPool mCommandPool = VK_NULL_HANDLE;
 
+		VkPipeline mGraphicsPipeline;
+		VkPipelineLayout mPipelineLayout;
+
 		std::vector<VkCommandBuffer> mCommandBuffers;
 		std::vector<VkSemaphore> mImageAvailableSemaphores;
 		std::vector<VkSemaphore> mImageDoneSemaphores;
@@ -53,6 +56,10 @@ namespace OtterEngine {
 
 		void CleanupSwapchainResources();
 		void RecreateSwapchain();
+
+		VkShaderModule CreateShaderModule(const std::vector<char>& shader);
+
+		void CreateGraphicsPipeline();
 
 	public:
 		explicit VulkanRenderer(GLFWwindow* window);

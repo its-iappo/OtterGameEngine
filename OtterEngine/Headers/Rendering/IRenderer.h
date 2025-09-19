@@ -9,5 +9,4 @@ namespace OtterEngine {
         virtual void Clear() = 0;
         virtual void DrawFrame() = 0;
     };
-
 }

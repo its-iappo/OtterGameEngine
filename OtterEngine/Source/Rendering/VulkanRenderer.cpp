@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "Core/Logger.h"
+#include "Utils/OtterIO.h"
 #include "Rendering/VulkanRenderer.h"
 
 namespace OtterEngine {
@@ -12,15 +13,18 @@ namespace OtterEngine {
 
 	VulkanRenderer::VulkanRenderer(GLFWwindow* window) :
 		pWindow(window),
-		mInstance(VK_NULL_HANDLE),
-		mPhysicalDevice(VK_NULL_HANDLE),
+		mCurrentFrame(0),
 		mDevice(VK_NULL_HANDLE),
 		mSurface(VK_NULL_HANDLE),
+		mInstance(VK_NULL_HANDLE),
 		mSwapchain(VK_NULL_HANDLE),
-		mSwapchainImageFormat(VK_FORMAT_UNDEFINED),
+		mRenderPass(VK_NULL_HANDLE),
 		mCommandPool(VK_NULL_HANDLE),
-		mCurrentFrame(0) {
-	}
+		mPhysicalDevice(VK_NULL_HANDLE),
+		mPipelineLayout(VK_NULL_HANDLE),
+		mGraphicsPipeline(VK_NULL_HANDLE),
+		mSwapchainImageFormat(VK_FORMAT_UNDEFINED),
+		mSwapchainExtent{} {}
 
 	VulkanRenderer::~VulkanRenderer() {
 		Clear();
@@ -38,6 +42,7 @@ namespace OtterEngine {
 		CreateSwapchain();
 		CreateImageViews();
 		CreateRenderPass();
+		CreateGraphicsPipeline();
 		CreateFramebuffers();
 		CreateCommandBuffers();
 		CreateSyncObjects();
@@ -92,6 +97,11 @@ namespace OtterEngine {
 	/// IRenderer DrawFrame() override
 	/// </summary>
 	void VulkanRenderer::DrawFrame() {
+		// Do not draw anything if window is minimized
+		int width = 0, height = 0;
+		glfwGetFramebufferSize(pWindow, &width, &height);
+		if (width == 0 || height == 0) return;
+		
 		// Ensure previous frame is done
 		vkWaitForFences(mDevice, 1, &mOnGoingFences[mCurrentFrame], VK_TRUE, UINT64_MAX);
 
@@ -629,5 +639,128 @@ namespace OtterEngine {
 		CreateRenderPass();
 		CreateFramebuffers();
 		CreateCommandBuffers();
+	}
+
+	VkShaderModule VulkanRenderer::CreateShaderModule(const std::vector<char>& shader)
+	{
+		VkShaderModuleCreateInfo createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+		createInfo.codeSize = shader.size();
+		createInfo.pCode = reinterpret_cast<const uint32_t*>(shader.data());
+
+		VkShaderModule shaderModule;
+		if (vkCreateShaderModule(mDevice, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create shader module!");
+		}
+
+		return shaderModule;
+	}
+
+	void VulkanRenderer::CreateGraphicsPipeline() {
+		auto vertShaderCode = OtterIO::ReadFile("OtterEngine/Shaders/triangle.vert.spv");
+		auto fragShaderCode = OtterIO::ReadFile("OtterEngine/Shaders/triangle.frag.spv");
+
+		VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
+		VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
+
+		// Stages
+		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+		vertShaderStageInfo.module = vertShaderModule;
+		vertShaderStageInfo.pName = "main";
+
+		VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+		fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+		fragShaderStageInfo.module = fragShaderModule;
+		fragShaderStageInfo.pName = "main";
+
+		VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+
+		// Fixed-function pipeline configs (semplificato per ora: nessun vertex buffer, viewport dinamico, ecc.)
+		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+
+		VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+		inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+		inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+		VkViewport viewport{};
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewport.width = (float)mSwapchainExtent.width;
+		viewport.height = (float)mSwapchainExtent.height;
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+
+		VkRect2D scissor{};
+		scissor.offset = { 0, 0 };
+		scissor.extent = mSwapchainExtent;
+
+		VkPipelineViewportStateCreateInfo viewportState{};
+		viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+		viewportState.viewportCount = 1;
+		viewportState.pViewports = &viewport;
+		viewportState.scissorCount = 1;
+		viewportState.pScissors = &scissor;
+
+		VkPipelineRasterizationStateCreateInfo rasterizer{};
+		rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+		rasterizer.depthClampEnable = VK_FALSE;
+		rasterizer.rasterizerDiscardEnable = VK_FALSE;
+		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+		rasterizer.lineWidth = 1.0f;
+		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+		rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+		rasterizer.depthBiasEnable = VK_FALSE;
+
+		VkPipelineMultisampleStateCreateInfo multisampling{};
+		multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+		multisampling.sampleShadingEnable = VK_FALSE;
+		multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+		VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+		colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
+			VK_COLOR_COMPONENT_G_BIT |
+			VK_COLOR_COMPONENT_B_BIT |
+			VK_COLOR_COMPONENT_A_BIT;
+		colorBlendAttachment.blendEnable = VK_FALSE;
+
+		VkPipelineColorBlendStateCreateInfo colorBlending{};
+		colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+		colorBlending.logicOpEnable = VK_FALSE;
+		colorBlending.attachmentCount = 1;
+		colorBlending.pAttachments = &colorBlendAttachment;
+
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+
+		if (vkCreatePipelineLayout(mDevice, &pipelineLayoutInfo, nullptr, &mPipelineLayout) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create pipeline layout!");
+		}
+
+		VkGraphicsPipelineCreateInfo pipelineInfo{};
+		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+		pipelineInfo.stageCount = 2;
+		pipelineInfo.pStages = shaderStages;
+		pipelineInfo.pVertexInputState = &vertexInputInfo;
+		pipelineInfo.pInputAssemblyState = &inputAssembly;
+		pipelineInfo.pViewportState = &viewportState;
+		pipelineInfo.pRasterizationState = &rasterizer;
+		pipelineInfo.pMultisampleState = &multisampling;
+		pipelineInfo.pColorBlendState = &colorBlending;
+		pipelineInfo.layout = mPipelineLayout;
+		pipelineInfo.renderPass = mRenderPass;
+		pipelineInfo.subpass = 0;
+
+		if (vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &mGraphicsPipeline) != VK_SUCCESS) {
+			throw std::runtime_error("Failed to create graphics pipeline!");
+		}
+
+		// Cleanup shader modules
+		vkDestroyShaderModule(mDevice, fragShaderModule, nullptr);
+		vkDestroyShaderModule(mDevice, vertShaderModule, nullptr);
 	}
 }
