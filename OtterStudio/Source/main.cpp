@@ -1,22 +1,12 @@
-#ifdef OTTER_USE_MODULES
-import OtterEngine.EngineCore;
-import OtterEngine.Logger;
-#else
-#include "EngineCore.h"
-#include "Logger.h"
-#endif
+#include "Core/Application.h"
+#include "Core/Logger.h"
 
 #include <iostream>
-#include "LoggerMacros.h"
 
 int main() {
-    OtterEngine::EngineCore engine;
+    OtterEngine::Application app;
 
-    engine.Start();
     OTTER_CLIENT_LOG("Starting OtterStudio!");
-
-    std::cout << "OtterStudio is running!" << std::endl;
-    std::cin.get();
-
+    app.Run();
     return 0;
 }

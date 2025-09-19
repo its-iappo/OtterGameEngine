@@ -1,2 +1,2 @@
-# Wrapper per setup.py in PowerShell
+# Wrapper for setup.py on PowerShell
 python setup.py $args

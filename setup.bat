@@ -1,4 +1,4 @@
 @echo off
-REM Wrapper per setup.py su Windows
+REM Wrapper for setup.py on Windows
 python setup.py %*
 pause

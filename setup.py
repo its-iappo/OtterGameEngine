@@ -49,5 +49,7 @@ def main():
         configure(args.preset)
         build(args.preset)
 
+    print(f'[INFO] Process complete.')
+
 if __name__ == '__main__':
     main()

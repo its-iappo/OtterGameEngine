@@ -1,3 +1,3 @@
 #!/bin/bash
-# Wrapper per setup.py su Unix-like systems
+# Wrapper for setup.py on Unix-like systems
 python3 setup.py "$@"

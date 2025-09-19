@@ -3,6 +3,6 @@
 namespace OtterEngine {
 	class EngineCore {
 	public:
-		void Start();
+		static void Start();
 	};
 }
