@@ -45,6 +45,7 @@ CMakeUserPresets.json
 
 # === AUTO-GENERATED ===
 *.generated.*
+*.tlog
 
 # === TEMP ===
 *.tmp
