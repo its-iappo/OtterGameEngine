@@ -50,3 +50,6 @@ CMakeUserPresets.json
 # === TEMP ===
 *.tmp
 *.temp
+
+# === Compiled Shaders ===
+*.spv

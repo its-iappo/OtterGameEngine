@@ -1,5 +1,5 @@
-﻿#include "Core/EngineCore.h"
-#include "Core/Logger.h"
+﻿#include "Core/Logger.h"
+#include "Core/EngineCore.h"
 
 namespace OtterEngine {
 	void EngineCore::Start()

@@ -28,37 +28,44 @@ target_link_libraries(OtterEngine PUBLIC
     glfw
     glm::glm
     Vulkan::Vulkan
+    unofficial::shaderc::shaderc
 )
 
-# Shader source dir
+# -------------------------
+# Shader compilation
+# -------------------------
+
+find_program(GLSLC_EXECUTABLE NAMES glslc HINTS ${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/tools/shaderc)
+
+if (NOT GLSLC_EXECUTABLE)
+    message(FATAL_ERROR "glslc not found! Make sure shaderc is installed with vcpkg.")
+else()
+    message(STATUS "Found glslc: ${GLSLC_EXECUTABLE}")
+endif()
+
 set(SHADER_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Shaders)
 set(SHADER_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/Shaders)
 
-file(GLOB SHADER_SOURCES
+file(GLOB_RECURSE SHADER_SOURCES
     ${SHADER_SOURCE_DIR}/*.vert
     ${SHADER_SOURCE_DIR}/*.frag
 )
 
-# Ensure output directory exists
-file(MAKE_DIRECTORY ${SHADER_BINARY_DIR})
-
-# Compile each shader with glslc
+set(SPV_OUTPUTS "")
 foreach(SHADER ${SHADER_SOURCES})
-    get_filename_component(FILE_NAME ${SHADER} NAME)
-    set(SPIRV ${SHADER_BINARY_DIR}/${FILE_NAME}.spv)
+    file(RELATIVE_PATH REL_PATH ${SHADER_SOURCE_DIR} ${SHADER})
+    set(SPV "${SHADER_BINARY_DIR}/${REL_PATH}.spv")
+    get_filename_component(SPV_DIR ${SPV} DIRECTORY)
+    file(MAKE_DIRECTORY ${SPV_DIR})
 
     add_custom_command(
-        OUTPUT ${SPIRV}
-        COMMAND ${Vulkan_GLSLC_EXECUTABLE} ${SHADER} -o ${SPIRV}
+        OUTPUT ${SPV}
+        COMMAND ${GLSLC_EXECUTABLE} ${SHADER} -o ${SPV}
         DEPENDS ${SHADER}
-        COMMENT "Compiling shader ${FILE_NAME}"
+        COMMENT "Compiling shader ${REL_PATH} -> ${SPV}"
         VERBATIM
     )
-    list(APPEND SPIRV_SHADERS ${SPIRV})
+    list(APPEND SPV_OUTPUTS ${SPV})
 endforeach()
 
-# Custom target so shaders are built together with engine
-add_custom_target(Shaders ALL DEPENDS ${SPIRV_SHADERS})
-
-# Ensure engine build depends on shaders
-add_dependencies(OtterEngine Shaders)
+add_custom_target(Shaders ALL DEPENDS ${SPV_OUTPUTS})

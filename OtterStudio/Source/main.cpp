@@ -1,12 +1,19 @@
-#include "Core/Application.h"
-#include "Core/Logger.h"
-
 #include <iostream>
 
-int main() {
-    OtterEngine::Application app;
+#include "Core/Logger.h"
+#include "Core/Application.h"
 
-    OTTER_CLIENT_LOG("Starting OtterStudio!");
-    app.Run();
-    return 0;
+
+int main() {
+	OtterEngine::Application app;
+
+	OTTER_CLIENT_LOG("Starting OtterStudio!");
+	try {
+		app.Run();
+	}
+	catch (const std::exception& e) {
+		OTTER_CLIENT_ERROR("Otter Studio encountered a fatal error: {}", e.what());
+		return EXIT_FAILURE;
+	}
+	return EXIT_SUCCESS;
 }

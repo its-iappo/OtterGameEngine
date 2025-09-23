@@ -1,8 +1,7 @@
-#include "Core/Logger.h"
-
-
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+
+#include "Core/Logger.h"
 
 namespace OtterEngine {
 	std::shared_ptr<spdlog::logger> Logger::sCoreLogger;

@@ -1,7 +1,9 @@
-#include <stdexcept>
-#include <vector>
 #include <set>
+#include <memory>
+#include <vector>
+#include <string>
 #include <iostream>
+#include <stdexcept>
 
 #include "Core/Logger.h"
 #include "Utils/OtterIO.h"
@@ -10,6 +12,41 @@
 namespace OtterEngine {
 
 	static constexpr uint32_t MAX_ONGOING_FRAMES = 2;
+
+	const std::vector<const char*> validationLayers = {
+	"VK_LAYER_KHRONOS_validation"
+	};
+
+	static const char* VkResultToString(VkResult res) {
+		switch (res) {
+		case VK_SUCCESS: return "VK_SUCCESS";
+		case VK_NOT_READY: return "VK_NOT_READY";
+		case VK_TIMEOUT: return "VK_TIMEOUT";
+		case VK_EVENT_SET: return "VK_EVENT_SET";
+		case VK_EVENT_RESET: return "VK_EVENT_RESET";
+		case VK_INCOMPLETE: return "VK_INCOMPLETE";
+		case VK_ERROR_OUT_OF_HOST_MEMORY: return "VK_ERROR_OUT_OF_HOST_MEMORY";
+		case VK_ERROR_OUT_OF_DEVICE_MEMORY: return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
+		case VK_ERROR_INITIALIZATION_FAILED: return "VK_ERROR_INITIALIZATION_FAILED";
+		case VK_ERROR_DEVICE_LOST: return "VK_ERROR_DEVICE_LOST";
+		case VK_ERROR_MEMORY_MAP_FAILED: return "VK_ERROR_MEMORY_MAP_FAILED";
+		case VK_ERROR_LAYER_NOT_PRESENT: return "VK_ERROR_LAYER_NOT_PRESENT";
+		case VK_ERROR_EXTENSION_NOT_PRESENT: return "VK_ERROR_EXTENSION_NOT_PRESENT";
+		case VK_ERROR_FEATURE_NOT_PRESENT: return "VK_ERROR_FEATURE_NOT_PRESENT";
+		case VK_ERROR_INCOMPATIBLE_DRIVER: return "VK_ERROR_INCOMPATIBLE_DRIVER";
+		case VK_ERROR_TOO_MANY_OBJECTS: return "VK_ERROR_TOO_MANY_OBJECTS";
+		case VK_ERROR_FORMAT_NOT_SUPPORTED: return "VK_ERROR_FORMAT_NOT_SUPPORTED";
+		case VK_ERROR_FRAGMENTED_POOL: return "VK_ERROR_FRAGMENTED_POOL";
+		case VK_ERROR_SURFACE_LOST_KHR: return "VK_ERROR_SURFACE_LOST_KHR";
+		case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR: return "VK_ERROR_NATIVE_WINDOW_IN_USE_KHR";
+		case VK_SUBOPTIMAL_KHR: return "VK_SUBOPTIMAL_KHR";
+		case VK_ERROR_OUT_OF_DATE_KHR: return "VK_ERROR_OUT_OF_DATE_KHR";
+		case VK_ERROR_INCOMPATIBLE_DISPLAY_KHR: return "VK_ERROR_INCOMPATIBLE_DISPLAY_KHR";
+		case VK_ERROR_VALIDATION_FAILED_EXT: return "VK_ERROR_VALIDATION_FAILED_EXT";
+		case VK_ERROR_INVALID_SHADER_NV: return "VK_ERROR_INVALID_SHADER_NV";
+		default: return "Unknown VkResult";
+		}
+	}
 
 	VulkanRenderer::VulkanRenderer(GLFWwindow* window) :
 		pWindow(window),
@@ -24,7 +61,8 @@ namespace OtterEngine {
 		mPipelineLayout(VK_NULL_HANDLE),
 		mGraphicsPipeline(VK_NULL_HANDLE),
 		mSwapchainImageFormat(VK_FORMAT_UNDEFINED),
-		mSwapchainExtent{} {}
+		mSwapchainExtent{} {
+	}
 
 	VulkanRenderer::~VulkanRenderer() {
 		Clear();
@@ -34,9 +72,9 @@ namespace OtterEngine {
 	/// IRenderer Init() override
 	/// </summary>
 	void VulkanRenderer::Init() {
-		Create();
+		CreateVulkanInstance();
 		CreateSurface();
-		GetFirstAvailablePhysicalDevice(); // Find first available GPU that supports Vulkan
+		PickPhysicalDevice(); // Find first available GPU that supports Vulkan
 		CreateLogicalDevice(); // Create logical device from the physical device
 		CreateCommandPool();
 		CreateSwapchain();
@@ -101,7 +139,7 @@ namespace OtterEngine {
 		int width = 0, height = 0;
 		glfwGetFramebufferSize(pWindow, &width, &height);
 		if (width == 0 || height == 0) return;
-		
+
 		// Ensure previous frame is done
 		vkWaitForFences(mDevice, 1, &mOnGoingFences[mCurrentFrame], VK_TRUE, UINT64_MAX);
 
@@ -127,7 +165,7 @@ namespace OtterEngine {
 		VkSemaphore waitSemaphores[] = { mImageAvailableSemaphores[mCurrentFrame] };
 		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 		VkSemaphore signalSemaphores[] = { mImageDoneSemaphores[mCurrentFrame] };
-		
+
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		submitInfo.waitSemaphoreCount = 1;
@@ -167,19 +205,18 @@ namespace OtterEngine {
 		mCurrentFrame = (mCurrentFrame + 1) % MAX_ONGOING_FRAMES;
 	}
 
-	void VulkanRenderer::Create() {
+	void VulkanRenderer::CreateVulkanInstance() {
 		VkApplicationInfo appInfo{};
 
 		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 
-		appInfo.pApplicationName = "Otter Game Engine";
-		appInfo.pEngineName = "Otter Game Engine";
+		appInfo.pApplicationName = "Otter VKRender Engine";
+		appInfo.pEngineName = "Otter Engine";
 
 		appInfo.applicationVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
 		appInfo.engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
 		appInfo.apiVersion = VK_API_VERSION_1_3;
 
-		// Get required extensions from GLFW for Vulkan surface creation
 		uint32_t glfwExtensionsCount = 0;
 		const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionsCount); // C-style array of strings for extensions' names
 
@@ -189,8 +226,9 @@ namespace OtterEngine {
 
 		std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionsCount);
 
-		// extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-		// extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME); // Enable debug utils extension for validation layers
+		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME); // Enable debug utils extension for validation layers
+
+		bool enableValidation = CheckValidationLayerSupport();
 
 		VkInstanceCreateInfo createInfo{};
 
@@ -200,9 +238,15 @@ namespace OtterEngine {
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
 		createInfo.ppEnabledExtensionNames = extensions.data();
 
-		// Disable validation layers
-		createInfo.enabledLayerCount = 0;
-		createInfo.ppEnabledLayerNames = nullptr;
+		if (enableValidation) {
+			createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+			createInfo.ppEnabledLayerNames = validationLayers.data();
+		}
+		else {
+			// Disable validation layers
+			createInfo.enabledLayerCount = 0;
+			createInfo.ppEnabledLayerNames = nullptr;
+		}
 
 		if (vkCreateInstance(&createInfo, nullptr, &mInstance) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create Vulkan renderer!");
@@ -219,10 +263,10 @@ namespace OtterEngine {
 		}
 	}
 
-	void VulkanRenderer::GetFirstAvailablePhysicalDevice() {
+	void VulkanRenderer::PickPhysicalDevice() {
 		uint32_t deviceCount = 0;
 
-		VkResult r = vkEnumeratePhysicalDevices(mInstance, &deviceCount, nullptr);
+		VkResult res = vkEnumeratePhysicalDevices(mInstance, &deviceCount, nullptr);
 
 		if (deviceCount == 0) {
 			throw std::runtime_error("No GPU supporting Vulkan found!");
@@ -311,8 +355,8 @@ namespace OtterEngine {
 
 		VkDeviceCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-		createInfo.pQueueCreateInfos = queueCreateInfos.data();
 		createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+		createInfo.pQueueCreateInfos = queueCreateInfos.data();
 		createInfo.pEnabledFeatures = &deviceFeatures;
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
 		createInfo.ppEnabledExtensionNames = deviceExtensions.data();
@@ -530,7 +574,6 @@ namespace OtterEngine {
 		mCommandBuffers.resize(mSwapchainFramebuffers.size());
 
 		VkCommandBufferAllocateInfo cbAllocInfo{};
-
 		cbAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 		cbAllocInfo.commandPool = mCommandPool;
 		cbAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -544,7 +587,9 @@ namespace OtterEngine {
 			VkCommandBufferBeginInfo beginInfo{};
 			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-			vkBeginCommandBuffer(mCommandBuffers[i], &beginInfo);
+			if (vkBeginCommandBuffer(mCommandBuffers[i], &beginInfo) != VK_SUCCESS) {
+				throw std::runtime_error("Failed to begin recording command buffer!");
+			}
 
 			VkRenderPassBeginInfo rpInfo{};
 			rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -553,13 +598,18 @@ namespace OtterEngine {
 			rpInfo.renderArea.offset = { 0, 0 };
 			rpInfo.renderArea.extent = mSwapchainExtent;
 
-			VkClearValue clearColor = { {0.0f, 0.0f, 0.0f, 1.0f} };
+			VkClearValue clearColor = { {0.1f, 0.1f, 0.2f, 1.0f} };
 			rpInfo.clearValueCount = 1;
 			rpInfo.pClearValues = &clearColor;
 
 			vkCmdBeginRenderPass(mCommandBuffers[i], &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-			// Clear command buffer
+			// Bind pipeline
+			vkCmdBindPipeline(mCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, mGraphicsPipeline);
+
+			// Issue draw command (3 vertices, 1 instance)
+			vkCmdDraw(mCommandBuffers[i], 3, 1, 0, 0);
+
 			vkCmdEndRenderPass(mCommandBuffers[i]);
 
 			if (vkEndCommandBuffer(mCommandBuffers[i]) != VK_SUCCESS) {
@@ -567,6 +617,7 @@ namespace OtterEngine {
 			}
 		}
 	}
+
 
 	void VulkanRenderer::CreateSyncObjects() {
 		mImageAvailableSemaphores.resize(MAX_ONGOING_FRAMES);
@@ -641,27 +692,51 @@ namespace OtterEngine {
 		CreateCommandBuffers();
 	}
 
-	VkShaderModule VulkanRenderer::CreateShaderModule(const std::vector<char>& shader)
+	void VulkanRenderer::CreateShaderModule(const std::vector<char>& shader,VkShaderModule& shaderModule)
 	{
-		VkShaderModuleCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		createInfo.codeSize = shader.size();
-		createInfo.pCode = reinterpret_cast<const uint32_t*>(shader.data());
+		// Ensure the size is a multiple of 4, as required by Vulkan for pCode
+		size_t codeSize = shader.size();
+		if (codeSize % 4 != 0) {
+			// Copy into a temporary padded buffer (shouldn't normally happen for .spv files)
+			std::vector<char> padded(codeSize + (4 - (codeSize % 4)));
+			std::copy(shader.begin(), shader.end(), padded.begin());
+			codeSize = padded.size();
 
-		VkShaderModule shaderModule;
-		if (vkCreateShaderModule(mDevice, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
-			throw std::runtime_error("Failed to create shader module!");
+			VkShaderModuleCreateInfo createInfo{};
+			createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+			createInfo.codeSize = codeSize;
+			createInfo.pCode = reinterpret_cast<const uint32_t*>(padded.data());
+
+			VkResult r = vkCreateShaderModule(mDevice, &createInfo, nullptr, &shaderModule);
+			if (r != VK_SUCCESS) {
+				throw std::runtime_error("Failed to create shader module (padded). VkResult = " + std::to_string(r));
+			}
 		}
+		else {
+			VkShaderModuleCreateInfo createInfo{};
+			createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+			createInfo.codeSize = codeSize;
+			createInfo.pCode = reinterpret_cast<const uint32_t*>(shader.data());
 
-		return shaderModule;
+			VkResult r = vkCreateShaderModule(mDevice, &createInfo, nullptr, &shaderModule);
+			if (r != VK_SUCCESS) {
+				throw std::runtime_error("Failed to create shader module. VkResult = " + std::to_string(r));
+			}
+		}
 	}
 
 	void VulkanRenderer::CreateGraphicsPipeline() {
-		auto vertShaderCode = OtterIO::ReadFile("OtterEngine/Shaders/triangle.vert.spv");
-		auto fragShaderCode = OtterIO::ReadFile("OtterEngine/Shaders/triangle.frag.spv");
+		auto vertShaderCode = OtterIO::ReadFile("../Shaders/triangle.vert.spv");
+		auto fragShaderCode = OtterIO::ReadFile("../Shaders/triangle.frag.spv");
 
-		VkShaderModule vertShaderModule = CreateShaderModule(vertShaderCode);
-		VkShaderModule fragShaderModule = CreateShaderModule(fragShaderCode);
+		OTTER_CORE_LOG("Vert size is: {}", vertShaderCode.size());
+		OTTER_CORE_LOG("Frag size is: {}", fragShaderCode.size());
+
+		VkShaderModule vertShaderModule;
+		CreateShaderModule(vertShaderCode, vertShaderModule);
+
+		VkShaderModule fragShaderModule;
+		CreateShaderModule(fragShaderCode, fragShaderModule);
 
 		// Stages
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -678,15 +753,30 @@ namespace OtterEngine {
 
 		VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
-		// Fixed-function pipeline configs (semplificato per ora: nessun vertex buffer, viewport dinamico, ecc.)
+		VkVertexInputBindingDescription bindingDescription{};
+		bindingDescription.binding = 0;
+		bindingDescription.stride = sizeof(float) * 5; // vec2 pos, vec3 color
+		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+		VkVertexInputAttributeDescription attributeDescription{};
+		attributeDescription.binding = 0;
+		attributeDescription.location = 0;
+		attributeDescription.format = VK_FORMAT_R32G32_SFLOAT; // vec2
+		attributeDescription.offset = 0;
+
+		// Vertex input
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+		vertexInputInfo.pVertexAttributeDescriptions = nullptr;
 
+		// Input Assembly
 		VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
 		inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		inputAssembly.primitiveRestartEnable = VK_FALSE;
 
+		// Viewport & Scissor
 		VkViewport viewport{};
 		viewport.x = 0.0f;
 		viewport.y = 0.0f;
@@ -706,6 +796,7 @@ namespace OtterEngine {
 		viewportState.scissorCount = 1;
 		viewportState.pScissors = &scissor;
 
+		// Rasterizer
 		VkPipelineRasterizationStateCreateInfo rasterizer{};
 		rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 		rasterizer.depthClampEnable = VK_FALSE;
@@ -716,31 +807,37 @@ namespace OtterEngine {
 		rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
 		rasterizer.depthBiasEnable = VK_FALSE;
 
+		// Multisampling
 		VkPipelineMultisampleStateCreateInfo multisampling{};
 		multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 		multisampling.sampleShadingEnable = VK_FALSE;
 		multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
+		// Color blending
 		VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-		colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT |
-			VK_COLOR_COMPONENT_G_BIT |
-			VK_COLOR_COMPONENT_B_BIT |
-			VK_COLOR_COMPONENT_A_BIT;
+		colorBlendAttachment.colorWriteMask =
+			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+			VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 		colorBlendAttachment.blendEnable = VK_FALSE;
 
 		VkPipelineColorBlendStateCreateInfo colorBlending{};
 		colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 		colorBlending.logicOpEnable = VK_FALSE;
+		colorBlending.logicOp = VK_LOGIC_OP_COPY;
 		colorBlending.attachmentCount = 1;
 		colorBlending.pAttachments = &colorBlendAttachment;
 
+		// Pipeline Layout
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+		pipelineLayoutInfo.setLayoutCount = 0;
+		pipelineLayoutInfo.pushConstantRangeCount = 0;
 
 		if (vkCreatePipelineLayout(mDevice, &pipelineLayoutInfo, nullptr, &mPipelineLayout) != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create pipeline layout!");
 		}
 
+		// Pipeline
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipelineInfo.stageCount = 2;
@@ -755,12 +852,32 @@ namespace OtterEngine {
 		pipelineInfo.renderPass = mRenderPass;
 		pipelineInfo.subpass = 0;
 
-		if (vkCreateGraphicsPipelines(mDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &mGraphicsPipeline) != VK_SUCCESS) {
+		VkResult res = vkCreateGraphicsPipelines(mDevice, nullptr, 1, &pipelineInfo, nullptr, &mGraphicsPipeline);
+
+		OTTER_CORE_LOG("Graphics pipeline result: {}", VkResultToString(res));
+
+		if (res != VK_SUCCESS) {
 			throw std::runtime_error("Failed to create graphics pipeline!");
 		}
 
-		// Cleanup shader modules
+		// Clean up shader modules
 		vkDestroyShaderModule(mDevice, fragShaderModule, nullptr);
 		vkDestroyShaderModule(mDevice, vertShaderModule, nullptr);
+	}
+
+	bool VulkanRenderer::CheckValidationLayerSupport() {
+		uint32_t layerCount = 0;
+		vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+		std::vector<VkLayerProperties> available(layerCount);
+		vkEnumerateInstanceLayerProperties(&layerCount, available.data());
+
+		for (const char* layerName : validationLayers) {
+			bool found = false;
+			for (const auto& prop : available) {
+				if (strcmp(prop.layerName, layerName) == 0) { found = true; break; }
+			}
+			if (!found) return false;
+		}
+		return true;
 	}
 }

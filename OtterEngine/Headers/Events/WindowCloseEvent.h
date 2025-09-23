@@ -1,9 +1,10 @@
 #pragma once
 
-#include "Events/Event.h"
 #include <string>
-#include <functional>
 #include <iostream>
+#include <functional>
+
+#include "Events/Event.h"
 
 namespace OtterEngine {
 

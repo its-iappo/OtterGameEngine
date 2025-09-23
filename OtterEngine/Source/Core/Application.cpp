@@ -1,6 +1,6 @@
-#include "Core/Application.h"
 #include "Core/Logger.h"
 #include "Core/EngineCore.h"
+#include "Core/Application.h"
 #include <Events/EventDispatcher.h>
 #include <Events/WindowCloseEvent.h>
 #include <Rendering/VulkanRenderer.h>

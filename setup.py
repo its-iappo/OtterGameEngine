@@ -30,17 +30,64 @@ def build(preset):
     print(f'[INFO] Building project with preset: {preset}')
     run_cmd(f'cmake --build --preset {preset}')
 
+def find_glslc():
+    for root, _, files in os.walk(ROOT_DIR):
+        for f in files:
+            if f.lower() in ("glslc", "glslc.exe"):
+                return os.path.join(root, f)
+    return None
+
+def compile_and_copy_shaders(preset):
+    shader_src_dir = os.path.join(ROOT_DIR, "OtterEngine", "Shaders")
+    shader_build_dir = os.path.join(BUILD_DIR, preset, "OtterEngine", "Shaders")
+    shader_out_dir = os.path.join(BUILD_DIR, preset, "OtterStudio", "Shaders")
+
+    os.makedirs(shader_build_dir, exist_ok=True)
+    os.makedirs(shader_out_dir, exist_ok=True)
+
+    glslc = find_glslc()
+
+    if not glslc:
+        print("[ERROR] glslc not found in PATH. Install via vcpkg or Vulkan SDK.")
+        sys.exit(1)
+    else:
+        print(f"[INFO] Found glslc at: {glslc}")
+
+    for root, _, files in os.walk(shader_src_dir):
+        for f in files:
+            if f.endswith((".vert", ".frag")):
+                src_path = os.path.join(root, f)
+                rel_path = os.path.relpath(src_path, shader_src_dir)
+                dst_path = os.path.join(shader_build_dir, rel_path + ".spv")
+                os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+
+                print(f"[INFO] Compiling {rel_path}")
+                run_cmd(f"\"{glslc}\" \"{src_path}\" -o \"{dst_path}\"")
+
+                # Copy compiled shaders into OtterStudio
+                dst_runtime = os.path.join(shader_out_dir, rel_path + ".spv")
+                os.makedirs(os.path.dirname(dst_runtime), exist_ok=True)
+                shutil.copy(dst_path, dst_runtime)
+                print(f"[INFO] Copied -> {dst_runtime}")
+
+                # Copy compiled shaders back into source Shaders folder
+                dst_source = os.path.join(shader_src_dir, rel_path + ".spv")
+                shutil.copy(dst_path, dst_source)
+                print(f"[INFO] Copied -> {dst_source}")
+
 def main():
     parser = argparse.ArgumentParser(description='OtterGameEngine Setup Tool')
     parser.add_argument('--preset', type=str, default='x64-debug', help='CMake preset name (default: "x64-debug")')
     parser.add_argument('--configure-only', action='store_true', help='Run CMake configuration only')
     parser.add_argument('--build-only', action='store_true', help='Build without configuring')
     parser.add_argument('--clean', action='store_true', help='Clean the build directory before starting')
+    parser.add_argument('--recompile-shaders', action='store_true', help='Recompile shaders and copy them without rebuilding the whole project')
     args = parser.parse_args()
 
     if args.clean:
         clean_build()
 
+    # ordine di priorità:
     if args.configure_only:
         configure(args.preset)
     elif args.build_only:
@@ -48,6 +95,9 @@ def main():
     else:
         configure(args.preset)
         build(args.preset)
+
+    if args.recompile_shaders:
+        compile_and_copy_shaders(args.preset)
 
     print(f'[INFO] Process complete.')
 

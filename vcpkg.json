@@ -5,6 +5,7 @@
     "spdlog",
     "glfw3",
     "glm",
-    "vulkan"
+    "vulkan",
+    "shaderc"
   ]
 }

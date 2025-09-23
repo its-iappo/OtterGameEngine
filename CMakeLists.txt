@@ -2,6 +2,8 @@
 
 project(OtterGameEngine LANGUAGES CXX)
 
+set(CMAKE_SUPPRESS_REGENERATION true)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -20,6 +22,7 @@ find_package(spdlog REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(glm REQUIRED)
 find_package(Vulkan REQUIRED)
+find_package(unofficial-shaderc CONFIG REQUIRED)
 
 # Add subdirectories
 add_subdirectory(OtterEngine)

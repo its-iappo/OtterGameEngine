@@ -1,10 +1,13 @@
 #pragma once
 
-#include <vulkan/vulkan.h>
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <vulkan/vulkan.h>
 #include <vector>
 
 #include "Rendering/IRenderer.h"
+
+class vector;
 
 namespace OtterEngine {
 
@@ -42,9 +45,9 @@ namespace OtterEngine {
 
 		uint32_t mCurrentFrame = 0;
 
-		void Create();
+		void CreateVulkanInstance();
 		void CreateSurface();
-		void GetFirstAvailablePhysicalDevice();
+		void PickPhysicalDevice();
 		void CreateLogicalDevice();
 		void CreateCommandPool();
 		void CreateSwapchain();
@@ -57,7 +60,9 @@ namespace OtterEngine {
 		void CleanupSwapchainResources();
 		void RecreateSwapchain();
 
-		VkShaderModule CreateShaderModule(const std::vector<char>& shader);
+		bool CheckValidationLayerSupport();
+
+		void CreateShaderModule(const std::vector<char>& shader, VkShaderModule& shaderModule);
 
 		void CreateGraphicsPipeline();
 
