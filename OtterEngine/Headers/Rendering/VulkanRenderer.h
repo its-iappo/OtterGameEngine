@@ -7,8 +7,6 @@
 
 #include "Rendering/IRenderer.h"
 
-class vector;
-
 namespace OtterEngine {
 
 	class VulkanRenderer : public IRenderer {
@@ -45,6 +43,8 @@ namespace OtterEngine {
 
 		uint32_t mCurrentFrame = 0;
 
+		VkDebugUtilsMessengerEXT mDebugMessenger = VK_NULL_HANDLE;
+
 		void CreateVulkanInstance();
 		void CreateSurface();
 		void PickPhysicalDevice();
@@ -65,6 +65,22 @@ namespace OtterEngine {
 		void CreateShaderModule(const std::vector<char>& shader, VkShaderModule& shaderModule);
 
 		void CreateGraphicsPipeline();
+
+		// Debugging utilities
+
+		static const char* VkResultToString(VkResult res);
+		static const char* VkPhysicalDeviceTypeToString(VkPhysicalDeviceType type);
+
+		void SetupDebugMessenger();
+
+		void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+
+		VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
+
+		void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
+
+		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
+
 
 	public:
 		explicit VulkanRenderer(GLFWwindow* window);

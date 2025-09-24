@@ -12,6 +12,7 @@ namespace OtterEngine {
 		std::ifstream file(fileName, std::ios::ate | std::ios::binary);
 		
 		if (!file.is_open()) {
+			OTTER_CORE_CRITICAL("Failed to open file: {}", fileName);
 			throw std::runtime_error("Failed to open file: " + fileName);
 		}
 
