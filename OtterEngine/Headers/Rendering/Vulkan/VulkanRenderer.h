@@ -56,7 +56,7 @@ namespace OtterEngine {
 		};
 
 		struct SwapChainSupportDetails {
-			VkSurfaceCapabilitiesKHR capabilities;
+			VkSurfaceCapabilitiesKHR capabilities{};
 			std::vector<VkSurfaceFormatKHR> formats;
 			std::vector<VkPresentModeKHR> presentModes;
 		};
@@ -127,8 +127,13 @@ namespace OtterEngine {
 
 		std::vector<VkSemaphore> mImageAvailableSemaphores;
 		std::vector<VkSemaphore> mRenderFinishedSemaphores;
-		std::vector<VkFence> mInFlightFences;
+		std::vector<VkFence> mActiveFences;
+		std::vector<VkFence> mImagesInFlight;
 		uint32_t mCurrentFrame = 0;
+
+		bool mIsCleared = false;
+
+		std::unique_ptr<class VulkanTextureLoader> mTextureLoader;
 
 		// Debug
 		VkDebugUtilsMessengerEXT mDebugMessenger = VK_NULL_HANDLE;
@@ -155,11 +160,8 @@ namespace OtterEngine {
 		void RecreateSwapchain();
 
 		void CreateNewBuffer(VkDeviceSize size, VkBufferUsageFlags usages, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
-		void CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) const;
 
 		bool CheckValidationLayerSupport();
-
-		uint32_t FindMemoryType(uint32_t filter, VkMemoryPropertyFlags properties) const;
 
 		VkShaderModule CreateShaderModule(const std::vector<char>& shader) const;
 

@@ -8,6 +8,7 @@ int main() {
 	OtterEngine::Application app;
 
 	OTTER_CLIENT_LOG("Starting OtterStudio!");
+
 	try {
 		app.Run();
 	}

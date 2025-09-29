@@ -40,10 +40,21 @@ def find_glslc():
 def compile_and_copy_shaders(preset):
     shader_src_dir = os.path.join(ROOT_DIR, "OtterEngine", "Shaders")
     shader_build_dir = os.path.join(BUILD_DIR, preset, "OtterEngine", "Shaders")
-    shader_out_dir = os.path.join(BUILD_DIR, preset, "OtterStudio", "Shaders")
+
+    studio_output_dir = os.path.join(BUILD_DIR, preset, "OtterStudio")
+
+    debug_studio_dir = os.path.join(studio_output_dir, "Debug")
+    release_studio_dir = os.path.join(studio_output_dir, "Release")
+
+    shader_out_dirs = [
+        os.path.join(debug_studio_dir, "Shaders"),
+        os.path.join(release_studio_dir, "Shaders"),
+        os.path.join(studio_output_dir, "Shaders")  # Fallback
+    ]
 
     os.makedirs(shader_build_dir, exist_ok=True)
-    os.makedirs(shader_out_dir, exist_ok=True)
+    for out_dir in shader_out_dirs:
+        os.makedirs(out_dir, exist_ok=True)
 
     glslc = find_glslc()
 
@@ -58,22 +69,47 @@ def compile_and_copy_shaders(preset):
             if f.endswith((".vert", ".frag")):
                 src_path = os.path.join(root, f)
                 rel_path = os.path.relpath(src_path, shader_src_dir)
-                dst_path = os.path.join(shader_build_dir, rel_path + ".spv")
-                os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+
+                dst_build_path = os.path.join(shader_build_dir, rel_path + ".spv")
+                os.makedirs(os.path.dirname(dst_build_path), exist_ok=True)
 
                 print(f"[INFO] Compiling {rel_path}")
-                run_cmd(f"\"{glslc}\" \"{src_path}\" -o \"{dst_path}\"")
+                run_cmd(f"\"{glslc}\" \"{src_path}\" -o \"{dst_build_path}\"")
 
-                # Copy compiled shaders into OtterStudio
-                dst_runtime = os.path.join(shader_out_dir, rel_path + ".spv")
-                os.makedirs(os.path.dirname(dst_runtime), exist_ok=True)
-                shutil.copy(dst_path, dst_runtime)
-                print(f"[INFO] Copied -> {dst_runtime}")
+                for out_dir in shader_out_dirs:
+                    dst_runtime = os.path.join(out_dir, rel_path + ".spv")
+                    os.makedirs(os.path.dirname(dst_runtime), exist_ok=True)
+                    shutil.copy(dst_build_path, dst_runtime)
+                    print(f"[INFO] Copied to -> {dst_runtime}")
 
-                # Copy compiled shaders back into source Shaders folder
                 dst_source = os.path.join(shader_src_dir, rel_path + ".spv")
-                shutil.copy(dst_path, dst_source)
-                print(f"[INFO] Copied -> {dst_source}")
+                shutil.copy(dst_build_path, dst_source)
+                print(f"[INFO] Copied to source -> {dst_source}")
+
+
+def copy_resources(preset):
+    resources_src = os.path.join(ROOT_DIR, "OtterEngine", "Resources")
+    studio_output_dir = os.path.join(BUILD_DIR, preset, "OtterStudio")
+
+    output_dirs = [
+        os.path.join(studio_output_dir, "Debug", "Resources"),
+        os.path.join(studio_output_dir, "Release", "Resources"),
+        os.path.join(studio_output_dir, "Resources")  # Fallback
+    ]
+
+    for output_dir in output_dirs:
+        if os.path.exists(resources_src):
+            os.makedirs(output_dir, exist_ok=True)
+            print(f"[INFO] Copying resources to: {output_dir}")
+
+            for item in os.listdir(resources_src):
+                src_path = os.path.join(resources_src, item)
+                dst_path = os.path.join(output_dir, item)
+
+                if os.path.isfile(src_path):
+                    shutil.copy2(src_path, dst_path)
+                elif os.path.isdir(src_path):
+                    shutil.copytree(src_path, dst_path, dirs_exist_ok=True)
 
 def main():
     parser = argparse.ArgumentParser(description='OtterGameEngine Setup Tool')
@@ -81,13 +117,16 @@ def main():
     parser.add_argument('--configure-only', action='store_true', help='Run CMake configuration only')
     parser.add_argument('--build-only', action='store_true', help='Build without configuring')
     parser.add_argument('--clean', action='store_true', help='Clean the build directory before starting')
-    parser.add_argument('--recompile-shaders', action='store_true', help='Recompile shaders and copy them without rebuilding the whole project')
+    parser.add_argument('--recompile-shaders', action='store_true', help='Recompile shaders without rebuilding the whole project')
+    parser.add_argument('--copy-resources', action='store_true', help='Copy resources to output directory')
     args = parser.parse_args()
+
+    should_recompile_shaders = args.recompile_shaders or args.clean
+    should_copy_resources = args.copy_resources or args.clean
 
     if args.clean:
         clean_build()
 
-    # ordine di priorità:
     if args.configure_only:
         configure(args.preset)
     elif args.build_only:
@@ -98,6 +137,9 @@ def main():
 
     if args.recompile_shaders:
         compile_and_copy_shaders(args.preset)
+
+    if should_copy_resources:
+        copy_resources(args.preset)
 
     print(f'[INFO] Process complete.')
 

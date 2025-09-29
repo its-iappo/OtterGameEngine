@@ -4,6 +4,7 @@
 #include <stdexcept>
 
 #include "Core/Logger.h"
+
 #include "Utils/OtterIO.h"
 
 namespace OtterEngine {

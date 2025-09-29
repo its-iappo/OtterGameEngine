@@ -3,7 +3,7 @@
 #include "Core/Application.h"
 #include <Events/EventDispatcher.h>
 #include <Events/WindowCloseEvent.h>
-#include <Rendering/VulkanRenderer.h>
+#include <Rendering/Vulkan/VulkanRenderer.h>
 
 namespace OtterEngine {
 

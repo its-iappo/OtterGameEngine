@@ -24,7 +24,16 @@ namespace OtterEngine {
 #define OTTER_CORE_WARNING(...) ::OtterEngine::Logger::getCoreLogger()->warn(__VA_ARGS__);
 #define OTTER_CORE_ERROR(...) ::OtterEngine::Logger::getCoreLogger()->error(__VA_ARGS__);
 #define OTTER_CORE_CRITICAL(...) ::OtterEngine::Logger::getCoreLogger()->critical(__VA_ARGS__);
+#define OTTER_CORE_EXCEPT(...) ::OtterEngine::Logger::getCoreLogger()->critical(__VA_ARGS__); \
+throw std::runtime_error(__VA_ARGS__);
+#define OTTER_CORE_CRASH(...) ::OtterEngine::Logger::getCoreLogger()->critical(__VA_ARGS__); \
+return EXIT_FAILURE;
+
 #define OTTER_CLIENT_LOG(...) ::OtterEngine::Logger::getClientLogger()->info(__VA_ARGS__);
 #define OTTER_CLIENT_WARNING(...) ::OtterEngine::Logger::getClientLogger()->warn(__VA_ARGS__);
 #define OTTER_CLIENT_ERROR(...) ::OtterEngine::Logger::getClientLogger()->error(__VA_ARGS__);
 #define OTTER_CLIENT_CRITICAL(...) ::OtterEngine::Logger::getClientLogger()->critical(__VA_ARGS__);
+#define OTTER_CLIENT_EXCEPT(...) ::OtterEngine::Logger::getClientLogger()->critical(__VA_ARGS__); \
+throw std::runtime_error(__VA_ARGS__);
+#define OTTER_CLIENT_CRASH(...) ::OtterEngine::Logger::getClientLogger()->critical(__VA_ARGS__); \
+return EXIT_FAILURE;

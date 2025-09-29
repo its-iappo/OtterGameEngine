@@ -18,8 +18,9 @@ target_sources(OtterEngine
 )
 
 # Include path
-target_include_directories(OtterEngine PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/Headers
+target_include_directories(OtterEngine 
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Headers
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty
 )
 
 # Link required libraries
