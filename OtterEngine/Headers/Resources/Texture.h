@@ -1,16 +1,27 @@
 #pragma once
 
+#include <memory>
+#include <string>
 #include <vector>
+
+#include "Resources/Resources.h"
 
 namespace OtterEngine {
 	class Texture {
 	private:
-		int mWidth, mHeight, mChannels;
+		int mWidth = 0;
+		int mHeight = 0; 
+		int mChannels = 0;
 		std::vector<uint8_t> mPixels;
 
 	public:
 		Texture() = default;
+
 		Texture(int width, int height, int channels, const std::vector<uint8_t>& pixels);
+		
+		static std::shared_ptr<Texture> LoadFromFile(const std::string& path);
+
+		bool IsValid() const { return mWidth > 0 && mHeight > 0 && !mPixels.empty(); }
 		
 		int GetWidth() const { return mWidth; }
 
@@ -27,7 +38,5 @@ namespace OtterEngine {
 		const uint8_t* GetData() const { return mPixels.data(); }
 
 		uint8_t* GetData() { return mPixels.data(); }
-
-		bool IsValid() { return mWidth > 0 && mHeight > 0 && !mPixels.empty(); }
 	};
 }

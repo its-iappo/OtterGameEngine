@@ -8,6 +8,6 @@ namespace OtterEngine {
 	class ITextureLoader {
 	public:
 		virtual ~ITextureLoader() = default;
-		virtual void LoadTexture(Texture& texture, const std::string& path) = 0;
+		virtual void LoadTexture(const std::string& path) = 0;
 	};
 }
