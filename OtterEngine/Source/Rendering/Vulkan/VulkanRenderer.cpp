@@ -1,6 +1,7 @@
 #include <set>
 #include <string>
 #include <chrono>
+#include <array>
 #include <algorithm>
 #include <stdexcept>
 #include <glm/gtc/matrix_transform.hpp>
@@ -53,10 +54,10 @@ namespace OtterEngine {
 		CreateFramebuffers();
 		CreateCommandPool();
 
-		mTextureLoader = std::make_unique<VulkanTextureLoader>(mDevice, mPhysicalDevice, mCommandPool, mGraphicsQueue);
-		Texture logo;
-
-		mTextureLoader->LoadTexture(logo, "../Resources/OGEIcon.png");
+		CreateTextureLoader();
+		mTextureLoader->LoadTexture("../Resources/OGEIcon.png");
+		mTextureLoader->CreateTextureImageView();
+		mTextureLoader->CreateTextureSampler();
 
 		CreateVertexBuffer();
 		CreateIndexBuffer();
@@ -399,6 +400,7 @@ namespace OtterEngine {
 		}
 
 		VkPhysicalDeviceFeatures deviceFeatures{};
+		deviceFeatures.samplerAnisotropy = VK_TRUE;
 
 		VkDeviceCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -409,6 +411,7 @@ namespace OtterEngine {
 
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(mDeviceExtensions.size());
 		createInfo.ppEnabledExtensionNames = mDeviceExtensions.data();
+
 
 		if (mEnableValidationLayers) {
 			createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
@@ -442,6 +445,11 @@ namespace OtterEngine {
 			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create command pool!");
 			throw std::runtime_error("Failed to create command pool!");
 		}
+	}
+
+	void VulkanRenderer::CreateTextureLoader()
+	{
+		mTextureLoader = std::make_unique<VulkanTextureLoader>(mDevice, mPhysicalDevice, mCommandPool, mGraphicsQueue);
 	}
 
 	void VulkanRenderer::CreateSwapchain()
@@ -505,25 +513,7 @@ namespace OtterEngine {
 		mSwapchainImageViews.resize(mSwapchainImages.size());
 
 		for (size_t i = 0; i < mSwapchainImages.size(); ++i) {
-			VkImageViewCreateInfo viewInfo{};
-			viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-			viewInfo.image = mSwapchainImages[i];
-			viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-			viewInfo.format = mSwapchainImageFormat;
-			viewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-			viewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-			viewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-			viewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-			viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			viewInfo.subresourceRange.baseMipLevel = 0;
-			viewInfo.subresourceRange.levelCount = 1;
-			viewInfo.subresourceRange.baseArrayLayer = 0;
-			viewInfo.subresourceRange.layerCount = 1;
-
-			if (vkCreateImageView(mDevice, &viewInfo, nullptr, &mSwapchainImageViews[i]) != VK_SUCCESS) {
-				OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create image views!");
-				throw std::runtime_error("Failed to create image views!");
-			}
+			mSwapchainImageViews[i] = VulkanUtility::CreateImageView(mDevice, mSwapchainImages[i], mSwapchainImageFormat);
 		}
 	}
 
@@ -675,14 +665,16 @@ namespace OtterEngine {
 	}
 
 	void VulkanRenderer::CreateDescriptorPool() {
-		VkDescriptorPoolSize poolSize{};
-		poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSize.descriptorCount = MAX_ONGOING_FRAMES;
+		std::array<VkDescriptorPoolSize, 2> poolSizes{};
+		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSizes[0].descriptorCount = MAX_ONGOING_FRAMES;
+		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		poolSizes[1].descriptorCount = MAX_ONGOING_FRAMES;
 
 		VkDescriptorPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		poolInfo.poolSizeCount = 1;
-		poolInfo.pPoolSizes = &poolSize;
+		poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+		poolInfo.pPoolSizes = poolSizes.data();
 		poolInfo.maxSets = MAX_ONGOING_FRAMES;
 
 		if (vkCreateDescriptorPool(mDevice, &poolInfo, nullptr, &mDescriptorPool) != VK_SUCCESS) {
@@ -713,16 +705,32 @@ namespace OtterEngine {
 			bufferInfo.offset = 0;
 			bufferInfo.range = sizeof(UniformBufferObject);
 
-			VkWriteDescriptorSet descriptorWrite{};
-			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			descriptorWrite.dstSet = mDescriptorSets[i];
-			descriptorWrite.dstBinding = 0;
-			descriptorWrite.dstArrayElement = 0;
-			descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			descriptorWrite.descriptorCount = 1;
-			descriptorWrite.pBufferInfo = &bufferInfo;
+			VkDescriptorImageInfo imageInfo{};
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageInfo.imageView = mTextureLoader->GetCurrentImageView();
+			imageInfo.sampler = mTextureLoader->GetCurrentSampler();
 
-			vkUpdateDescriptorSets(mDevice, 1, &descriptorWrite, 0, nullptr);
+			std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+			descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[0].dstSet = mDescriptorSets[i];
+			descriptorWrites[0].dstBinding = 0;
+			descriptorWrites[0].dstArrayElement = 0;
+			descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			descriptorWrites[0].descriptorCount = 1;
+			descriptorWrites[0].pBufferInfo = &bufferInfo;
+
+			descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrites[1].dstSet = mDescriptorSets[i];
+			descriptorWrites[1].dstBinding = 1;
+			descriptorWrites[1].dstArrayElement = 0;
+			descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			descriptorWrites[1].descriptorCount = 1;
+			descriptorWrites[1].pImageInfo = &imageInfo;
+
+			vkUpdateDescriptorSets(mDevice, 
+				static_cast<uint32_t>(descriptorWrites.size()),
+				descriptorWrites.data(),
+				0, nullptr);
 		}
 	}
 
@@ -1100,16 +1108,24 @@ namespace OtterEngine {
 	{
 		VkDescriptorSetLayoutBinding uboLayoutBinding{};
 		uboLayoutBinding.binding = 0;
-		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uboLayoutBinding.descriptorCount = 1;
+		uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
 		uboLayoutBinding.pImmutableSamplers = nullptr;
+
+		VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+		samplerLayoutBinding.binding = 1;
+		samplerLayoutBinding.descriptorCount = 1;
+		samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		samplerLayoutBinding.pImmutableSamplers = nullptr;
+		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
 
 		VkDescriptorSetLayoutCreateInfo layoutInfo{};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		layoutInfo.bindingCount = 1;
-		layoutInfo.pBindings = &uboLayoutBinding;
+		layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+		layoutInfo.pBindings = bindings.data();
 
 		if (vkCreateDescriptorSetLayout(mDevice, &layoutInfo, nullptr, &mDescriptorSetLayout) != VK_SUCCESS) {
 			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create descriptor set layout!");
@@ -1245,7 +1261,13 @@ namespace OtterEngine {
 			swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
 		}
 
-		return indices.IsComplete() && extensionsSupported && swapChainAdequate;
+		VkPhysicalDeviceFeatures supportedFeatures{};
+		vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
+
+		return indices.IsComplete()
+			&& extensionsSupported
+			&& swapChainAdequate
+			&& supportedFeatures.samplerAnisotropy;
 	}
 
 	VulkanRenderer::SwapChainSupportDetails VulkanRenderer::QuerySwapChainSupport(VkPhysicalDevice device) {

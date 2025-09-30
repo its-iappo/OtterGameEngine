@@ -12,8 +12,11 @@ namespace OtterEngine {
 		VkPhysicalDevice mPhysicalDevice;
 		VkCommandPool mCommandPool;
 		VkQueue mGraphicsQueue;
-		VkImage mImage;
+
+		VkImage mTexture;
+		VkImageView mImageView;
 		VkDeviceMemory mTextureImageMemory;
+		VkSampler mTextureSampler;
 
 	public:
 		VulkanTextureLoader() = default;
@@ -21,10 +24,14 @@ namespace OtterEngine {
 			VkCommandPool commandPool, VkQueue graphicsQueue);
 		~VulkanTextureLoader() override;
 
-		void LoadTexture(Texture& texture, const std::string& path) override;
+		void LoadTexture(const std::string& path) override;
+		void CreateTextureImageView();
+		void CreateTextureSampler();
 
 		void ClearResources();
 
-		VkImage GetCurrentImage() const { return mImage; }
+		VkImage GetCurrentImage() const { return mTexture; }
+		VkImageView GetCurrentImageView() const { return mImageView; }
+		VkSampler GetCurrentSampler() const { return mTextureSampler; }
 	};
 }

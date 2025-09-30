@@ -3,6 +3,8 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
+
+#include <array>
 #include <vector>
 #include <optional>
 
@@ -18,6 +20,7 @@ namespace OtterEngine {
 		struct Vertex {
 			glm::vec2 pos;
 			glm::vec3 color;
+			glm::vec2 texCoord;
 
 			static VkVertexInputBindingDescription GetBindingDescription() {
 				VkVertexInputBindingDescription bindingDescription{};
@@ -27,16 +30,23 @@ namespace OtterEngine {
 				return bindingDescription;
 			}
 
-			static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions() {
-				std::vector<VkVertexInputAttributeDescription> attributeDescriptions(2);
+			static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDescriptions() {
+				std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
 				attributeDescriptions[0].binding = 0;
 				attributeDescriptions[0].location = 0;
 				attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT; // vec2
 				attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
 				attributeDescriptions[1].binding = 0;
 				attributeDescriptions[1].location = 1;
 				attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT; // vec3
 				attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+				attributeDescriptions[2].binding = 0;
+				attributeDescriptions[2].location = 2;
+				attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT; // vec2
+				attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+
 				return attributeDescriptions;
 			}
 		};
@@ -104,10 +114,10 @@ namespace OtterEngine {
 		VkBuffer mVertexBuffer = VK_NULL_HANDLE;
 		VkDeviceMemory mVertexBufferMemory = VK_NULL_HANDLE;
 		const std::vector<Vertex> mVertices = {
-			{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-			{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-			{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-			{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+			{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+			{{ 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+			{{ 0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+			{{-0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
 		};
 
 		// Index buffer
@@ -147,6 +157,7 @@ namespace OtterEngine {
 		void CreateRenderPass();
 		void CreateFramebuffers();
 		void CreateCommandPool();
+		void CreateTextureLoader();
 		void CreateVertexBuffer();
 		void CreateIndexBuffer();
 		void CreateUniformBuffers();
