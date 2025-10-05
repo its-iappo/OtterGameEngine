@@ -23,7 +23,6 @@
 *.lib
 *.dll
 *.pdb
-*.obj
 
 # === IDEs and SYSTEM FILES ===
 .vs/

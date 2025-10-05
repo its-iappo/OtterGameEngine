@@ -1,4 +1,6 @@
-﻿cmake_minimum_required(VERSION 3.27)
+﻿# OtterGameEngine/CMakeLists.txt (root file)
+
+cmake_minimum_required(VERSION 3.27)
 
 project(OtterGameEngine LANGUAGES CXX)
 

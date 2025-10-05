@@ -1,13 +1,14 @@
 #pragma once
 
-#include <string>
+#include <functional>
 
 #include "Resources/Texture.h"
+#include "Resources/Resources.h"
 
 namespace OtterEngine {
 	class ITextureLoader {
 	public:
 		virtual ~ITextureLoader() = default;
-		virtual void LoadTexture(const std::string& path) = 0;
+		virtual ResourceHandle<Texture> LoadTexture(const std::filesystem::path& path) = 0;
 	};
 }

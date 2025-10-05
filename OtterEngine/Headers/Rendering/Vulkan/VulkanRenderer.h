@@ -4,71 +4,26 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 
-#include <array>
 #include <vector>
 #include <optional>
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include "glm/glm.hpp"
+
+#include "Rendering/Vertex.h"
+#include "Rendering/Vulkan/VulkanDebugger.h"
 
 #include "Rendering/IRenderer.h"
 
 namespace OtterEngine {
 	class VulkanRenderer : public IRenderer { 
 	public:
-		struct Vertex {
-			glm::vec2 pos;
-			glm::vec3 color;
-			glm::vec2 texCoord;
-
-			static VkVertexInputBindingDescription GetBindingDescription() {
-				VkVertexInputBindingDescription bindingDescription{};
-				bindingDescription.binding = 0;
-				bindingDescription.stride = sizeof(Vertex);
-				bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-				return bindingDescription;
-			}
-
-			static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDescriptions() {
-				std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
-				attributeDescriptions[0].binding = 0;
-				attributeDescriptions[0].location = 0;
-				attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT; // vec2
-				attributeDescriptions[0].offset = offsetof(Vertex, pos);
-
-				attributeDescriptions[1].binding = 0;
-				attributeDescriptions[1].location = 1;
-				attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT; // vec3
-				attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-				attributeDescriptions[2].binding = 0;
-				attributeDescriptions[2].location = 2;
-				attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT; // vec2
-				attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-
-				return attributeDescriptions;
-			}
-		};
-
 		struct UniformBufferObject {
 			alignas(16) glm::mat4 model;
 			alignas(16) glm::mat4 view;
 			alignas(16) glm::mat4 proj;
-		};
-
-		struct QueueFamilyIndices {
-			std::optional<uint32_t> graphicsFamily = UINT32_MAX;
-			std::optional<uint32_t> presentFamily = UINT32_MAX;
-			bool IsComplete() const {
-				return graphicsFamily != UINT32_MAX && presentFamily != UINT32_MAX;
-			}
-		};
-
-		struct SwapChainSupportDetails {
-			VkSurfaceCapabilitiesKHR capabilities{};
-			std::vector<VkSurfaceFormatKHR> formats;
-			std::vector<VkPresentModeKHR> presentModes;
 		};
 
 	private:
@@ -87,11 +42,10 @@ namespace OtterEngine {
 #else
 		const bool mEnableValidationLayers = true;
 #endif
-		const std::vector<const char*> validationLayers = {
+		const std::vector<const char*> mValidationLayers = {
 		"VK_LAYER_KHRONOS_validation"
 		};
 		const std::vector<const char*> mDeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-
 
 		VkQueue mGraphicsQueue = VK_NULL_HANDLE;
 		VkQueue mPresentQueue = VK_NULL_HANDLE;
@@ -110,23 +64,6 @@ namespace OtterEngine {
 
 		VkCommandPool mCommandPool = VK_NULL_HANDLE;
 
-		// Vertex buffer
-		VkBuffer mVertexBuffer = VK_NULL_HANDLE;
-		VkDeviceMemory mVertexBufferMemory = VK_NULL_HANDLE;
-		const std::vector<Vertex> mVertices = {
-			{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-			{{ 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-			{{ 0.5f,  0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-			{{-0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-		};
-
-		// Index buffer
-		VkBuffer mIndexBuffer = VK_NULL_HANDLE;
-		VkDeviceMemory mIndexBufferMemory = VK_NULL_HANDLE;
-		const std::vector<uint32_t> mIndices = {
-			0, 1, 2, 2, 3, 0
-		};
-
 		std::vector<VkBuffer> mUniformBuffers;
 		std::vector<VkDeviceMemory> mUniformBuffersMemory;
 		std::vector<void*> mUniformBuffersMapped;
@@ -144,9 +81,13 @@ namespace OtterEngine {
 		bool mIsCleared = false;
 
 		std::unique_ptr<class VulkanTextureLoader> mTextureLoader;
+		std::unique_ptr<class VulkanMeshLoader> mMeshLoader;
 
-		// Debug
-		VkDebugUtilsMessengerEXT mDebugMessenger = VK_NULL_HANDLE;
+		VkImage mDepthImage;
+		VkDeviceMemory mDepthImageMemory;
+		VkImageView mDepthImageView;
+
+		std::unique_ptr<VulkanDebugger> mVkDebugger;
 
 		void CreateVulkanInstance();
 		void CreateSurface();
@@ -157,9 +98,11 @@ namespace OtterEngine {
 		void CreateRenderPass();
 		void CreateFramebuffers();
 		void CreateCommandPool();
+		void CreateDepthResources();
+
 		void CreateTextureLoader();
-		void CreateVertexBuffer();
-		void CreateIndexBuffer();
+		void CreateMeshLoader();
+		
 		void CreateUniformBuffers();
 		void CreateDescriptorPool();
 		void CreateDescriptorSets();
@@ -170,10 +113,6 @@ namespace OtterEngine {
 		void CleanupSwapchainResources();
 		void RecreateSwapchain();
 
-		void CreateNewBuffer(VkDeviceSize size, VkBufferUsageFlags usages, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
-
-		bool CheckValidationLayerSupport();
-
 		VkShaderModule CreateShaderModule(const std::vector<char>& shader) const;
 
 		void CreateGraphicsPipeline();
@@ -182,30 +121,8 @@ namespace OtterEngine {
 
 		void UpdateUniformBuffer(uint32_t currentImage);
 
-		// Debugging utilities
-
-		static const char* VkResultToString(VkResult res);
-		static const char* VkPhysicalDeviceTypeToString(VkPhysicalDeviceType type);
-
+		// Debugging and utilities
 		void SetupDebugMessenger();
-
-		void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-
-		VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
-
-		void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
-
-		static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
-
-		bool IsDeviceSuitable(VkPhysicalDevice device);
-		SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device);
-		bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
-		QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
-
-		VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
-		VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
-		VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
-
 	public:
 		explicit VulkanRenderer(GLFWwindow* window);
 		~VulkanRenderer() override;

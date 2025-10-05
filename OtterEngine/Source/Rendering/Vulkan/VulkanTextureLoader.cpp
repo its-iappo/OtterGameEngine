@@ -1,7 +1,5 @@
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
 #include "Core/Logger.h"
+#include "Utils/PathFormat.h"
 #include "Rendering/Vulkan/VulkanUtility.h"
 
 #include "Rendering/Vulkan/VulkanTextureLoader.h"
@@ -25,61 +23,30 @@ namespace OtterEngine {
 		ClearResources();
 	}
 
-	void VulkanTextureLoader::LoadTexture(const std::string& path)
+	ResourceHandle<Texture> VulkanTextureLoader::LoadTexture(const std::filesystem::path& path)
 	{
-		int w, h, channels;
-		stbi_uc* pixels = stbi_load(path.c_str(), &w, &h,
-			&channels, STBI_rgb_alpha);
+		ClearResources();
+		mTextureHandle = Resources::Load<Texture>(path);
 
-		if (!pixels) {
-			OTTER_CORE_EXCEPT("[VULKAN TEXTURE LOADER] Failed to load texture image!");
+		if (!mTextureHandle) {
+			OTTER_CORE_ERROR("[VULKAN TEXTURE LOADER] Failed to load texture: {}", path);
+			return ResourceHandle<Texture>();
 		}
 
-		VkDeviceSize imageSize = w * h * 4;
+		UploadTextureToGPU(*mTextureHandle);
 
-		VkBuffer stagingBuffer;
-		VkDeviceMemory stagingBufferMemory;
+		CreateTextureImageView();
+		CreateTextureSampler();
 
-		VulkanUtility::CreateNewBuffer(mDevice, mPhysicalDevice, imageSize,
-			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			stagingBuffer, stagingBufferMemory);
+		OTTER_CORE_LOG("[VULKAN TEXTURE LOADER] Texture loaded and uploaded to GPU: {}",
+			mTextureHandle.GetPath());
 
-		void* data;
-		vkMapMemory(mDevice, stagingBufferMemory, 0, imageSize, 0, &data);
-		memcpy(data, pixels, static_cast<size_t>(imageSize));
-		vkUnmapMemory(mDevice, stagingBufferMemory);
-
-		stbi_image_free(pixels);
-
-		VulkanUtility::CreateVkImage(mDevice, mPhysicalDevice,
-			mTexture, mTextureImageMemory, w, h,
-			VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
-			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-		VulkanUtility::TransitionImageLayout(mDevice, mCommandPool,
-			mTexture, mGraphicsQueue,
-			VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
-			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-
-		VulkanUtility::CopyBufferToImage(mDevice, mCommandPool,
-			mGraphicsQueue, stagingBuffer,
-			mTexture, w, h);
-
-		VulkanUtility::TransitionImageLayout(mDevice, mCommandPool,
-			mTexture, mGraphicsQueue,
-			VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-		vkDestroyBuffer(mDevice, stagingBuffer, nullptr);
-		vkFreeMemory(mDevice, stagingBufferMemory, nullptr);
+		return mTextureHandle;
 	}
 
 	void VulkanTextureLoader::CreateTextureImageView()
 	{
-		mImageView = VulkanUtility::CreateImageView(mDevice ,mTexture, VK_FORMAT_R8G8B8A8_SRGB);
+		mImageView = VulkanUtility::CreateImageView(mDevice ,mTexture, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 	}
 
 	void VulkanTextureLoader::CreateTextureSampler()
@@ -113,14 +80,74 @@ namespace OtterEngine {
 		if (vkCreateSampler(mDevice, &samplerInfo, nullptr, &mTextureSampler)!= VK_SUCCESS) {
 			OTTER_CORE_EXCEPT("[VULKAN TEXTURE LOADER] Failed to create texture sampler!");
 		}
+	}
 
+	void VulkanTextureLoader::UploadTextureToGPU(const Texture& tex)
+	{
+		VkDeviceSize imageSize = tex.GetByteSize();
+		const uint8_t* pixels = tex.GetData();
 
+		VkBuffer stagingBuffer;
+		VkDeviceMemory stagingBufferMemory;
+
+		VulkanUtility::CreateNewBuffer(mDevice, mPhysicalDevice, imageSize,
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+			stagingBuffer, stagingBufferMemory);
+
+		void* data;
+		vkMapMemory(mDevice, stagingBufferMemory, 0, imageSize, 0, &data);
+		memcpy(data, pixels, static_cast<size_t>(imageSize));
+		vkUnmapMemory(mDevice, stagingBufferMemory);
+
+		uint32_t width = static_cast<uint32_t>(tex.GetWidth());
+		uint32_t height = static_cast<uint32_t>(tex.GetHeight());
+
+		VulkanUtility::CreateVkImage(mDevice, mPhysicalDevice,
+			mTexture, mTextureImageMemory,
+			width, height,
+			VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+		VulkanUtility::TransitionImageLayout(mDevice, mCommandPool,
+			mTexture, mGraphicsQueue,
+			VK_FORMAT_R8G8B8A8_SRGB, 
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+		VulkanUtility::CopyBufferToImage(mDevice, mCommandPool,
+			mGraphicsQueue, stagingBuffer,
+			mTexture, width, height);
+
+		VulkanUtility::TransitionImageLayout(mDevice, mCommandPool,
+			mTexture, mGraphicsQueue,
+			VK_FORMAT_R8G8B8A8_SRGB, 
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+		vkDestroyBuffer(mDevice, stagingBuffer, nullptr);
+		vkFreeMemory(mDevice, stagingBufferMemory, nullptr);
 	}
 
 	void VulkanTextureLoader::ClearResources() {
-		vkDestroySampler(mDevice, mTextureSampler, nullptr);
-		vkDestroyImageView(mDevice, mImageView, nullptr);
-		vkDestroyImage(mDevice, mTexture, nullptr);
-		vkFreeMemory(mDevice, mTextureImageMemory, nullptr);
+		if (mDevice == VK_NULL_HANDLE) return;
+
+		if (mTextureSampler != VK_NULL_HANDLE) {
+			vkDestroySampler(mDevice, mTextureSampler, nullptr);
+			mTextureSampler = VK_NULL_HANDLE;
+		}
+		if (mImageView != VK_NULL_HANDLE) {
+			vkDestroyImageView(mDevice, mImageView, nullptr);
+			mImageView = VK_NULL_HANDLE;
+		}
+		if (mTexture != VK_NULL_HANDLE) {
+			vkDestroyImage(mDevice, mTexture, nullptr);
+			mTexture = VK_NULL_HANDLE;
+		}
+		if (mTextureImageMemory != VK_NULL_HANDLE) {
+			vkFreeMemory(mDevice, mTextureImageMemory, nullptr);
+			mTextureImageMemory = VK_NULL_HANDLE;
+		}
 	}
 }

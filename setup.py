@@ -8,12 +8,14 @@ import sys
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 BUILD_DIR = os.path.join(ROOT_DIR, 'out', 'build')
 
+
 def run_cmd(cmd, cwd=None):
     print(f'>> {cmd}')
     result = subprocess.run(cmd, cwd=cwd, shell=True)
     if result.returncode != 0:
         print(f'[ERROR] Command failed: {cmd}')
         sys.exit(result.returncode)
+
 
 def clean_build():
     if os.path.exists(BUILD_DIR):
@@ -22,13 +24,16 @@ def clean_build():
     else:
         print(f'[ERROR] Build directory does not exist: {BUILD_DIR}')
 
+
 def configure(preset):
     print(f'[INFO] Configuring project with preset: {preset}')
     run_cmd(f'cmake --preset {preset}')
 
+
 def build(preset):
     print(f'[INFO] Building project with preset: {preset}')
     run_cmd(f'cmake --build --preset {preset}')
+
 
 def find_glslc():
     for root, _, files in os.walk(ROOT_DIR):
@@ -36,6 +41,7 @@ def find_glslc():
             if f.lower() in ("glslc", "glslc.exe"):
                 return os.path.join(root, f)
     return None
+
 
 def compile_and_copy_shaders(preset):
     shader_src_dir = os.path.join(ROOT_DIR, "OtterEngine", "Shaders")
@@ -111,6 +117,7 @@ def copy_resources(preset):
                 elif os.path.isdir(src_path):
                     shutil.copytree(src_path, dst_path, dirs_exist_ok=True)
 
+
 def main():
     parser = argparse.ArgumentParser(description='OtterGameEngine Setup Tool')
     parser.add_argument('--preset', type=str, default='x64-debug', help='CMake preset name (default: "x64-debug")')
@@ -119,6 +126,7 @@ def main():
     parser.add_argument('--clean', action='store_true', help='Clean the build directory before starting')
     parser.add_argument('--recompile-shaders', action='store_true', help='Recompile shaders without rebuilding the whole project')
     parser.add_argument('--copy-resources', action='store_true', help='Copy resources to output directory')
+    # parser.add_argument('--full-rebuild', action='store_true', help='Rebuild entire project, recompile shaders and copy all resources')
     args = parser.parse_args()
 
     should_recompile_shaders = args.recompile_shaders or args.clean
@@ -135,13 +143,14 @@ def main():
         configure(args.preset)
         build(args.preset)
 
-    if args.recompile_shaders:
+    if should_recompile_shaders:
         compile_and_copy_shaders(args.preset)
 
     if should_copy_resources:
         copy_resources(args.preset)
 
     print(f'[INFO] Process complete.')
+
 
 if __name__ == '__main__':
     main()
