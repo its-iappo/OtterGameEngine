@@ -1,4 +1,5 @@
-#include "Core/Logger.h"
+#include "OtterPCH.h"
+
 #include "Core/EngineCore.h"
 #include "Core/Application.h"
 #include <Events/EventDispatcher.h>

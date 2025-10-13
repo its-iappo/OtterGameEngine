@@ -1,10 +1,8 @@
+#include "OtterPCH.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_NO_SIMD // TODO
 #include <stb_image.h>
-
-#include <string>
-
-#include "Core/Logger.h"
 
 #include "Resources/Texture.h"
 

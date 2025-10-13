@@ -1,5 +1,6 @@
+#include "OtterPCH.h"
+
 #include "Core/Window.h"
-#include "Core/Logger.h"
 #include "Events/WindowCloseEvent.h"
 
 namespace OtterEngine {

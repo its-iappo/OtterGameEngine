@@ -24,6 +24,9 @@ target_include_directories(OtterEngine
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/ThirdParty
 )
 
+# Precompile headers
+target_precompile_headers(OtterEngine PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/Headers/OtterPCH.h")
+
 # Link required libraries
 target_link_libraries(OtterEngine PUBLIC
     spdlog::spdlog

@@ -1,7 +1,4 @@
-#include <set>
-#include <algorithm>
-
-#include "Core/Logger.h"
+#include "OtterPCH.h"
 
 #include "Rendering/Vulkan/VulkanUtility.h"
 

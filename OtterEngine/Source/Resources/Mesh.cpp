@@ -1,3 +1,5 @@
+#include "OtterPCH.h"
+
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -6,9 +8,6 @@
 #define RAPIDOBJ_IMPLEMENTATION
 #include "rapidobj.hpp"
 
-#include <unordered_map>
-
-#include "Core/Logger.h"
 #include "Resources/Mesh.h"
 
 // Template specialization for hashing glm vectors

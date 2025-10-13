@@ -7,9 +7,12 @@ add_executable(OtterStudio
 set_target_properties(OtterStudio PROPERTIES
     CXX_STANDARD 20
     CXX_STANDARD_REQUIRED YES
+    MACOSX_BUNDLE TRUE
 )
 
 target_link_libraries(OtterStudio PRIVATE OtterEngine)
+
+set_target_icon(OtterStudio "OtterStudioIcon")
 
 # --- Shader copy ---
 set(SHADER_SOURCE_DIR ${CMAKE_BINARY_DIR}/OtterEngine/Shaders)

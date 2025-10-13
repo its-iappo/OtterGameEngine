@@ -1,4 +1,5 @@
-#include "Core/Logger.h"
+#include "OtterPCH.h"
+
 #include "Utils/PathFormat.h"
 #include "Rendering/Vulkan/VulkanUtility.h"
 

@@ -1,14 +1,10 @@
-#include <set>
-#include <string>
-#include <chrono>
-#include <array>
-#include <stdexcept>
+#include "OtterPCH.h"
+
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "Core/Logger.h"
 #include "Utils/OtterIO.h"
 #include "Rendering/Vulkan/VulkanUtility.h"
 #include "Rendering/Vulkan/VulkanMeshLoader.h" 

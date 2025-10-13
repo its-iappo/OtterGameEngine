@@ -1,6 +1,5 @@
-#include <vector>
+#include "OtterPCH.h"
 
-#include "Core/Logger.h"
 #include "Utils/PathFormat.h"
 #include "Resources/Mesh.h"
 #include "Rendering/Vertex.h"
