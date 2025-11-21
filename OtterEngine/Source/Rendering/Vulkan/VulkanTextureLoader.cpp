@@ -79,7 +79,7 @@ namespace OtterEngine {
 		samplerInfo.maxLod = 0.0f;
 
 		if (vkCreateSampler(mDevice, &samplerInfo, nullptr, &mTextureSampler)!= VK_SUCCESS) {
-			OTTER_CORE_EXCEPT("[VULKAN TEXTURE LOADER] Failed to create texture sampler!");
+			OTTER_CORE_CRITICAL("[VULKAN TEXTURE LOADER] Failed to create texture sampler!");
 		}
 	}
 

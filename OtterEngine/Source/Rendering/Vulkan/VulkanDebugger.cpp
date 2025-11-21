@@ -9,7 +9,6 @@ namespace OtterEngine {
 
 		if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr) != VK_SUCCESS) {
 			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to set up debug messenger!")
-				throw std::runtime_error("Failed to set up debug messenger!");
 		}
 	}
 

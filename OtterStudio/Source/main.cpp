@@ -9,12 +9,7 @@ int main() {
 
 	OTTER_CLIENT_LOG("Starting OtterStudio!");
 
-	try {
-		app.Run();
-	}
-	catch (const std::exception& e) {
-		OTTER_CLIENT_CRITICAL("Otter Studio encountered a fatal error: {}", e.what());
-		return EXIT_FAILURE;
-	}
+	app.Run();
+
 	return EXIT_SUCCESS;
 }

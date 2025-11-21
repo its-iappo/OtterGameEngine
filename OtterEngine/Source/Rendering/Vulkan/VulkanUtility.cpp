@@ -12,7 +12,7 @@ namespace OtterEngine {
 		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 		if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
-			OTTER_CORE_EXCEPT("[VULKAN UTILITY] Failed to create buffer!");
+			OTTER_CORE_CRITICAL("[VULKAN UTILITY] Failed to create buffer!");
 		}
 
 		VkMemoryRequirements memRequirements;
@@ -24,7 +24,7 @@ namespace OtterEngine {
 		allocInfo.memoryTypeIndex = FindMemoryType(physDevice, memRequirements.memoryTypeBits, properties);
 
 		if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
-			OTTER_CORE_EXCEPT("[VULKAN UTILITY] Failed to allocate buffer memory!");
+			OTTER_CORE_CRITICAL("[VULKAN UTILITY] Failed to allocate buffer memory!");
 		}
 
 		vkBindBufferMemory(device, buffer, bufferMemory, 0);
@@ -53,7 +53,7 @@ namespace OtterEngine {
 		imageInfo.flags = 0;
 
 		if (vkCreateImage(device, &imageInfo, nullptr, &img) != VK_SUCCESS) {
-			OTTER_CORE_EXCEPT("[VULKAN UTILITY] Failed to create image!");
+			OTTER_CORE_CRITICAL("[VULKAN UTILITY] Failed to create image!");
 		}
 
 		VkMemoryRequirements memReq{};
@@ -66,11 +66,11 @@ namespace OtterEngine {
 		allocInfo.memoryTypeIndex = FindMemoryType(physDevice, memReq.memoryTypeBits, properties);
 
 		if (vkAllocateMemory(device, &allocInfo, nullptr, &imgMem) != VK_SUCCESS) {
-			OTTER_CORE_EXCEPT("[VULKAN UTILITY] Failed to allocate image memory!");
+			OTTER_CORE_CRITICAL("[VULKAN UTILITY] Failed to allocate image memory!");
 		}
 
 		if (vkBindImageMemory(device, img, imgMem, 0) != VK_SUCCESS) {
-			OTTER_CORE_EXCEPT("[VULKAN UTILITY] Failed to bind image memory!");
+			OTTER_CORE_CRITICAL("[VULKAN UTILITY] Failed to bind image memory!");
 		}
 	}
 
@@ -88,7 +88,7 @@ namespace OtterEngine {
 
 		VkImageView imageView;
 		if (vkCreateImageView(device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
-			OTTER_CORE_EXCEPT("[VULKAN UTILITY] Failed to create image view!");
+			OTTER_CORE_CRITICAL("[VULKAN UTILITY] Failed to create image view!");
 		}
 
 		return imageView;
@@ -109,7 +109,8 @@ namespace OtterEngine {
 			}
 		}
 
-		OTTER_CORE_EXCEPT("[VULKAN UTILITY] Failed to find suitable memory type!");
+		OTTER_CORE_CRITICAL("[VULKAN UTILITY] Failed to find suitable memory type!");
+		return UINT32_MAX;
 	}
 
 	VkCommandBuffer VulkanUtility::BeginSingleTimeCommandBuffer(VkDevice device, VkCommandPool commandPool)
@@ -122,7 +123,7 @@ namespace OtterEngine {
 
 		VkCommandBuffer commandBuffer;
 		if (vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer) != VK_SUCCESS) {
-			OTTER_CORE_EXCEPT("[VULKAN UTILITY] Failed to allocate command buffers while copying buffer!");
+			OTTER_CORE_CRITICAL("[VULKAN UTILITY] Failed to allocate command buffers while copying buffer!");
 		}
 
 		VkCommandBufferBeginInfo beginInfo{};
@@ -130,7 +131,7 @@ namespace OtterEngine {
 		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
 		if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-			OTTER_CORE_EXCEPT("[VULKAN UTILITY] Failed to begin command buffer while copying buffer!");
+			OTTER_CORE_CRITICAL("[VULKAN UTILITY] Failed to begin command buffer while copying buffer!");
 		}
 
 		return commandBuffer;
@@ -139,7 +140,7 @@ namespace OtterEngine {
 	void VulkanUtility::EndSingleTimeCommandBuffer(VkDevice device, VkCommandBuffer buffer, VkCommandPool pool, VkQueue grQueue)
 	{
 		if (vkEndCommandBuffer(buffer) != VK_SUCCESS) {
-			OTTER_CORE_EXCEPT("[VULKAN UTILITY] Failed to end command buffer while copying buffer!");
+			OTTER_CORE_CRITICAL("[VULKAN UTILITY] Failed to end command buffer while copying buffer!");
 		}
 
 		VkSubmitInfo submitInfo{};
@@ -148,11 +149,11 @@ namespace OtterEngine {
 		submitInfo.pCommandBuffers = &buffer;
 
 		if (vkQueueSubmit(grQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
-			OTTER_CORE_EXCEPT("[VULKAN UTILITY] Failed to submit command buffer while copying buffer!");
+			OTTER_CORE_CRITICAL("[VULKAN UTILITY] Failed to submit command buffer while copying buffer!");
 		}
 
 		if (vkQueueWaitIdle(grQueue) != VK_SUCCESS) {
-			OTTER_CORE_EXCEPT("[VULKAN UTILITY] Failed to wait for graphics queue while copying buffer!");
+			OTTER_CORE_CRITICAL("[VULKAN UTILITY] Failed to wait for graphics queue while copying buffer!");
 		}
 
 		vkFreeCommandBuffers(device, pool, 1, &buffer);
@@ -234,7 +235,9 @@ namespace OtterEngine {
 			destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 		}
 		else {
-			OTTER_CORE_EXCEPT("[VULKAN UTILITY] Unsupported layout transition!");
+			OTTER_CORE_CRITICAL("[VULKAN UTILITY] Unsupported layout transition!");
+			sourceStage = VK_PIPELINE_STAGE_NONE;
+			destinationStage = VK_PIPELINE_STAGE_NONE;
 		}
 
 		vkCmdPipelineBarrier(
@@ -284,7 +287,8 @@ namespace OtterEngine {
 			}
 		}
 
-		OTTER_CORE_EXCEPT("[VULKAN RENDERER] Failed to find supported format!");
+		OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to find supported format!");
+		return VK_FORMAT_UNDEFINED;
 	}
 
 	VkFormat VulkanUtility::FindDepthFormat(VkPhysicalDevice device) {

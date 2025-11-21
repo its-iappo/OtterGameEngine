@@ -25,6 +25,7 @@ find_package(glfw3 REQUIRED)
 find_package(glm REQUIRED)
 find_package(Vulkan REQUIRED)
 find_package(unofficial-shaderc CONFIG REQUIRED)
+find_package(imgui CONFIG REQUIRED)
 
 # Set icon of executables function
 function(set_target_icon target icon_base_name)

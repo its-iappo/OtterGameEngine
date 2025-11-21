@@ -13,6 +13,7 @@
 
 #include <chrono>
 #include <filesystem>
-#include <stdexcept>
 
 #include "Core/Logger.h"
+#include "Core/Assert.h"
+#include "Core/OtterCrashHandler.h"

@@ -10,6 +10,13 @@ namespace OtterEngine {
 	void EngineCore::Start()
 	{
 		Logger::Init();
+		OtterCrashReporter::Init(true);
+
+		Assert::SetHandler([](const char* cond, const char* msg, const char* file, int line)
+		{
+			OtterCrashReporter::Report(cond, msg, file, line);
+		});
+
 		Resources::AddLoader<Mesh>();
 		Resources::AddLoader<Texture>();
 

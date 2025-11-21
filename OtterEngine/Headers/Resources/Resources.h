@@ -4,12 +4,12 @@
 #include <memory>
 #include <cassert>
 #include <concepts>
-#include <typeindex>
 #include <filesystem>
 #include <functional>
 #include <unordered_map>
 
 #include "Core/Logger.h"
+#include "Utils/TypeID.h"
 
 namespace OtterEngine {
 
@@ -114,20 +114,20 @@ namespace OtterEngine {
 	// behind IResourceCache interface via polimorphism
 	class ResourceCache final {
 	private:
-		static inline std::unordered_map<std::type_index, std::unique_ptr<IResourceCache>> mInternalCaches;
+		static inline std::unordered_map<std::size_t, std::unique_ptr<IResourceCache>> mInternalCaches;
 
 		template<Resource T>
 		static TypedResourceCache<T>& GetCache() {
-			std::type_index typeIndex(typeid(T));
+			std::size_t typeID = GetTypeID<T>();
 
-			if (auto iter = mInternalCaches.find(typeIndex); iter != mInternalCaches.end()) {
+			if (auto iter = mInternalCaches.find(typeID); iter != mInternalCaches.end()) {
 				return *static_cast<TypedResourceCache<T>*>(iter->second.get());
 			}
 
 			// Create new cache for this type
 			auto newCache = std::make_unique<TypedResourceCache<T>>();
 			auto& cacheRef = *newCache;
-			mInternalCaches[typeIndex] = std::move(newCache);
+			mInternalCaches[typeID] = std::move(newCache);
 			return cacheRef;
 		}
 
@@ -176,12 +176,12 @@ namespace OtterEngine {
 	private:
 		// Default starting point
 		static inline fs::path mResPath = "../Resources/";
-		static inline std::unordered_map<std::type_index, std::unique_ptr<IResourceLoader>> mResLoaders;
+		static inline std::unordered_map<std::size_t, std::unique_ptr<IResourceLoader>> mResLoaders;
 
 		template<Resource T>
 		static TypedResourceLoader<T>* GetLoader() {
-			std::type_index typeIndex(typeid(T));
-			if (auto iter = mResLoaders.find(typeIndex); iter != mResLoaders.end()) {
+			std::size_t typeID = GetTypeID<T>();
+			if (auto iter = mResLoaders.find(typeID); iter != mResLoaders.end()) {
 				return static_cast<TypedResourceLoader<T>*>(iter->second.get());
 			}
 			return nullptr;
@@ -203,7 +203,7 @@ namespace OtterEngine {
 			// Load new resource
 			auto* loader = GetLoader<T>();
 			if (!loader) {
-				OTTER_CORE_ERROR("[RESOURCES] No loader registered for type: {}", typeid(T).name());
+				OTTER_CORE_ERROR("[RESOURCES] No loader registered for type id: {}", GetTypeID<T>());
 				return ResourceHandle<T>();
 			}
 
@@ -220,8 +220,8 @@ namespace OtterEngine {
 
 		template<Resource T>
 		static void AddLoader() {
-			std::type_index typeIndex(typeid(T));
-			mResLoaders[typeIndex] = std::make_unique<TypedResourceLoader<T>>(
+			std::size_t typeID = GetTypeID<T>();
+			mResLoaders[typeID] = std::make_unique<TypedResourceLoader<T>>(
 				[](const fs::path& path) -> std::shared_ptr<T> {
 					return T::LoadFromFile(path);
 				}
@@ -230,14 +230,12 @@ namespace OtterEngine {
 
 		template<Resource T>
 		static void AddCustomLoader(std::function<std::shared_ptr<T>(const fs::path&)> loader) {
-			std::type_index typeIndex(typeid(T));
-			mResLoaders[typeIndex] = std::make_unique<TypedResourceLoader<T>>(std::move(loader));
+			mResLoaders[GetTypeID<T>()] = std::make_unique<TypedResourceLoader<T>>(std::move(loader));
 		}
 
 		template<Resource T>
 		static void RemoveLoader() {
-			std::type_index typeIndex(typeid(T));
-			mResLoaders.erase(typeIndex);
+			mResLoaders.erase(GetTypeID<T>());
 		}
 
 		static void ClearAll() {

@@ -62,7 +62,7 @@ namespace OtterEngine {
 			}
 
 			if (!rapidobj::Triangulate(result)) {
-				OTTER_CORE_EXCEPT("[MESH] Failed to triangulate mesh {}", pathStr);
+				OTTER_CORE_CRITICAL("[MESH] Failed to triangulate mesh {}", pathStr);
 			}
 
 			std::vector<Vertex> vertices;

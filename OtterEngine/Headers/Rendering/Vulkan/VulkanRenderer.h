@@ -4,7 +4,6 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 
-#include <vector>
 #include <optional>
 
 #define GLM_FORCE_RADIANS

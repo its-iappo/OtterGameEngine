@@ -34,6 +34,20 @@ target_link_libraries(OtterEngine PUBLIC
     glm::glm
     Vulkan::Vulkan
     unofficial::shaderc::shaderc
+    imgui::imgui
+)
+
+# Disable exceptions
+if (MSVC)
+    target_compile_options(OtterEngine PRIVATE /EHs-c- /D_HAS_EXCEPTIONS=0)
+else()
+    target_compile_options(OtterEngine PRIVATE -fno-exceptions)
+endif()
+
+# Disable RTTI
+target_compile_options(OtterEngine PRIVATE
+    $<$<CXX_COMPILER_ID:MSVC>:/GR->
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-fno-rtti>
 )
 
 # -------------------------

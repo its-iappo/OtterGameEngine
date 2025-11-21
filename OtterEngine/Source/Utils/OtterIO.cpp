@@ -11,7 +11,6 @@ namespace OtterEngine {
 		
 		if (!file.is_open()) {
 			OTTER_CORE_CRITICAL("Failed to open file: {}", fileName);
-			throw std::runtime_error("Failed to open file: " + fileName);
 		}
 
 		std::vector<char> buffer((size_t)file.tellg());

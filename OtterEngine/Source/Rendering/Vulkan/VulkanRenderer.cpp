@@ -5,6 +5,8 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <span>
+
 #include "Utils/OtterIO.h"
 #include "Rendering/Vulkan/VulkanUtility.h"
 #include "Rendering/Vulkan/VulkanMeshLoader.h" 
@@ -141,8 +143,7 @@ namespace OtterEngine {
 
 		if (mEnableValidationLayers) {
 			mVkDebugger->DestroyDebugUtilsMessengerEXT(mInstance, nullptr);
-			mVkDebugger.reset();
-			// DEBUG MESSENGER RESET
+			mVkDebugger.reset(); // DEBUG MESSENGER RESET
 		}
 		if (mSurface != VK_NULL_HANDLE) {
 			vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
@@ -158,7 +159,7 @@ namespace OtterEngine {
 
 	/// <summary>
 	/// IRenderer DrawFrame() override
-	/// </summary>
+	/// </summary> 
 	void VulkanRenderer::DrawFrame() {
 		// Do not draw anything if window is minimized
 		int width = 0, height = 0;
@@ -180,9 +181,12 @@ namespace OtterEngine {
 			RecreateSwapchain();
 			return;
 		}
-		else if (nextImage != VK_SUCCESS && nextImage != VK_SUBOPTIMAL_KHR) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to acquire swapchain image!");
-			throw std::runtime_error("Failed to acquire swapchain image!");
+
+		if (nextImage == VK_SUBOPTIMAL_KHR) {
+			OTTER_CORE_WARNING("[VULKAN RENDERER] Failed to acquire optimal swapchain image!");
+		}
+		else if (nextImage != VK_SUCCESS) {
+			OTTER_ASSERT(false, "[VULKAN RENDERER] Swapchain image acquisition failed! VkResult: {}", VulkanUtility::VkResultToString(nextImage));
 		}
 
 		if (mImagesInFlight[imageIndex] != VK_NULL_HANDLE) {
@@ -214,10 +218,8 @@ namespace OtterEngine {
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
 
-		if (vkQueueSubmit(mGraphicsQueue, 1, &submitInfo, mActiveFences[mCurrentFrame]) != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to submit draw command buffer!");
-			throw std::runtime_error("Failed to submit draw command buffer!");
-		}
+		VkResult res = vkQueueSubmit(mGraphicsQueue, 1, &submitInfo, mActiveFences[mCurrentFrame]);
+		OTTER_ASSERT(res == VK_SUCCESS, "[VULKAN RENDERER] Failed to submit draw command buffer!");
 
 		VkPresentInfoKHR presentInfo{};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -230,15 +232,14 @@ namespace OtterEngine {
 		presentInfo.pSwapchains = swapchains;
 		presentInfo.pImageIndices = &imageIndex;
 
+		
 		VkResult presentResult = vkQueuePresentKHR(mPresentQueue, &presentInfo);
+		OTTER_ASSERT(presentResult == VK_SUCCESS || presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR, "[VULKAN RENDERER] Failed to present swapchain image!");
+
 		if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
 			RecreateSwapchain();
 		}
-		else if (presentResult != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to present swapchain image!")
-				throw std::runtime_error("Failed to present swapchain image!");
-		}
-
+		
 		mCurrentFrame = (mCurrentFrame + 1) % MAX_ONGOING_FRAMES;
 	}
 
@@ -257,10 +258,7 @@ namespace OtterEngine {
 		uint32_t glfwExtensionsCount = 0;
 		const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionsCount); // C-style array of strings for extensions' names
 
-		if (!glfwExtensions) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to get GLFW required instance extensions for Vulkan!");
-			throw std::runtime_error("Failed to get GLFW required instance extensions for Vulkan!");
-		}
+		OTTER_ASSERT(glfwExtensions != nullptr, "[VULKAN RENDERER] Failed to get GLFW required instance extensions for Vulkan!");
 
 		std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionsCount);
 
@@ -295,10 +293,8 @@ namespace OtterEngine {
 			OTTER_CORE_WARNING("[VULKAN RENDERER] Validation layers not found. To see debug logs, install the Vulkan SDK from LunarG.");
 		}
 
-		if (vkCreateInstance(&createInfo, nullptr, &mInstance) != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create Vulkan renderer!");
-			throw std::runtime_error("Failed to create Vulkan renderer!");
-		}
+		VkResult res = vkCreateInstance(&createInfo, nullptr, &mInstance);
+		OTTER_ASSERT(res == VK_SUCCESS, "[VULKAN RENDERER] Failed to create Vulkan renderer!");
 	}
 
 	void VulkanRenderer::CreateSurface() {
@@ -317,10 +313,7 @@ namespace OtterEngine {
 		uint32_t deviceCount = 0;
 		vkEnumeratePhysicalDevices(mInstance, &deviceCount, nullptr);
 
-		if (deviceCount == 0) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] No GPU supporting Vulkan found!");
-			throw std::runtime_error("No GPU supporting Vulkan found!");
-		}
+		OTTER_ASSERT(deviceCount > 0, "[VULKAN RENDERER] No GPU supporting Vulkan found!");
 
 		std::vector<VkPhysicalDevice> devices(deviceCount);
 		vkEnumeratePhysicalDevices(mInstance, &deviceCount, devices.data());
@@ -332,10 +325,7 @@ namespace OtterEngine {
 			}
 		}
 
-		if (mPhysicalDevice == VK_NULL_HANDLE) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to find a suitable GPU for Vulkan rendering!");
-			throw std::runtime_error("Failed to find a suitable GPU for Vulkan rendering!");
-		}
+		OTTER_ASSERT(mPhysicalDevice != VK_NULL_HANDLE, "[VULKAN RENDERER] Failed to find a suitable GPU for Vulkan rendering!");
 
 		OTTER_CORE_LOG("[VULKAN RENDERER] | ================= Selected GPU for Vulkan rendering! ================= |");
 
@@ -375,6 +365,8 @@ namespace OtterEngine {
 	void VulkanRenderer::CreateLogicalDevice() {
 		QueueFamilyIndices indices = VulkanUtility::FindQueueFamilies(mPhysicalDevice, mSurface);
 
+		OTTER_ASSERT(indices.IsComplete(), "[VULKAN RENDERER] Queue family indices incomplete!");
+
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 		std::set<uint32_t> uniqueQueueFamilies = { indices.mGraphicsFamily.value(), indices.mPresentFamily.value() };
 
@@ -410,10 +402,9 @@ namespace OtterEngine {
 			createInfo.enabledLayerCount = 0;
 		}
 
-		if (vkCreateDevice(mPhysicalDevice, &createInfo, nullptr, &mDevice) != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create logical device for Vulkan!");
-			throw std::runtime_error("Failed to create logical device for Vulkan!");
-		}
+		VkResult res = vkCreateDevice(mPhysicalDevice, &createInfo, nullptr, &mDevice);
+
+		OTTER_ASSERT(res == VK_SUCCESS, "[VULKAN RENDERER] Failed to create logical device for Vulkan!");
 
 		vkGetDeviceQueue(mDevice, indices.mGraphicsFamily.value(), 0, &mGraphicsQueue);
 		vkGetDeviceQueue(mDevice, indices.mPresentFamily.value(), 0, &mPresentQueue);
@@ -609,7 +600,7 @@ namespace OtterEngine {
 			info.layers = 1;
 
 			if (vkCreateFramebuffer(mDevice, &info, nullptr, &mSwapchainFramebuffers[i]) != VK_SUCCESS) {
-				OTTER_CORE_EXCEPT("[VULKAN RENDERER] Failed to create framebuffer!");
+				OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create framebuffer!");
 			}
 		}
 	}
@@ -908,24 +899,21 @@ namespace OtterEngine {
 
 	VkShaderModule VulkanRenderer::CreateShaderModule(const std::vector<char>& shader) const
 	{
+		OTTER_ASSERT(!shader.empty(), "[VULKAN RENDERER] Shader code is empty!");
+
 		// Ensure the size is a multiple of 4, as required by Vulkan for pCode
-		size_t codeSize = shader.size();
-		if (codeSize % 4 != 0) {
-			OTTER_CORE_EXCEPT("[VULKAN RENDERER] Shader SPIR-V size is not a multiple of 4!");
-		}
-		std::vector<uint32_t> codeWords(codeSize / 4);
-		std::memcpy(codeWords.data(), shader.data(), codeSize);
+		OTTER_ASSERT(shader.size() % 4 == 0, "[VULKAN RENDERER] Shader SPIR-V size not multiple of 4 (size: {})", shader.size());
 
 		VkShaderModuleCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		createInfo.codeSize = codeSize;
-		createInfo.pCode = codeWords.data();
+		createInfo.codeSize = shader.size();
+		createInfo.pCode = reinterpret_cast<const uint32_t*>(shader.data());
 
 		VkShaderModule shaderModule = VK_NULL_HANDLE;
+		
 		VkResult res = vkCreateShaderModule(mDevice, &createInfo, nullptr, &shaderModule);
-		if (res != VK_SUCCESS) {
-			OTTER_CORE_EXCEPT("[VULKAN RENDERER] Failed to create shader module! VkResult = {}", std::string(VulkanUtility::VkResultToString(res)));
-		}
+
+		OTTER_ASSERT(res == VK_SUCCESS, "[VULKAN RENDERER] Failed to create shader module! VkResult = {}", std::string(VulkanUtility::VkResultToString(res)));
 
 		return shaderModule;
 	}
