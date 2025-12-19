@@ -9,6 +9,8 @@
 #include <optional>
 #include <vulkan/vulkan.h>
 
+#include "Core/Logger.h"
+
 #include "Rendering/Vertex.h"
 
 namespace OtterEngine {
@@ -53,7 +55,7 @@ namespace OtterEngine {
 		static VkFormat FindSupportedFormat(VkPhysicalDevice device, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
 		static VkFormat FindDepthFormat(VkPhysicalDevice device);
-		
+
 		static QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
 
 		static const char* VkResultToString(VkResult res) {
@@ -155,4 +157,14 @@ namespace OtterEngine {
 			return attributeDescriptions;
 		}
 	};
+
+#define VK_CHECK(x)														 \
+do {																	 \
+    VkResult err = (x);													 \
+    if (err != VK_SUCCESS) {											 \
+        OTTER_FATAL("[VULKAN FATAL ERROR] {} in {}\nFile: {}\nLine: {}", \
+                    (int)err, #x, __FILE__, __LINE__);					 \
+    }																	 \
+} while (0)
+
 }

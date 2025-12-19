@@ -4,8 +4,6 @@
 #include <filesystem>
 #include <vulkan/vulkan.h>
 #include <cstdint>
-#include <optional>
-#include "Core/Logger.h"
 
 #include "Resources/Mesh.h"
 #include "Rendering/Vertex.h"

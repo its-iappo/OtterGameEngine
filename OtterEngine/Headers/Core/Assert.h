@@ -73,3 +73,10 @@ namespace OtterEngine {
 #define OTTER_ASSERT(condition, ...) ((void)0)
 
 #endif
+
+#define OTTER_FATAL(...)			   \
+do {								   \
+	OTTER_CORE_CRITICAL(__VA_ARGS__); \
+	OTTER_DEBUG_BREAK();			   \
+	std::abort();					   \
+} while(0)

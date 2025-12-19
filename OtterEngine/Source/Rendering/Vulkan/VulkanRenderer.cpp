@@ -7,18 +7,20 @@
 
 #include <span>
 
+#include <vulkan/vulkan_raii.hpp>
+
 #include "Utils/OtterIO.h"
 #include "Rendering/Vulkan/VulkanUtility.h"
 #include "Rendering/Vulkan/VulkanMeshLoader.h" 
 #include "Rendering/Vulkan/VulkanTextureLoader.h"
-
 #include "Rendering/Vulkan/VulkanRenderer.h"
+#include <algorithm>
+
 
 namespace OtterEngine {
 	VulkanRenderer::VulkanRenderer(GLFWwindow* window) :
 		pWindow(window),
 		mCurrentFrame(0),
-		mDevice(VK_NULL_HANDLE),
 		mSurface(VK_NULL_HANDLE),
 		mInstance(VK_NULL_HANDLE),
 		mSwapchain(VK_NULL_HANDLE),
@@ -80,33 +82,33 @@ namespace OtterEngine {
 	void VulkanRenderer::Clear() {
 		if (mIsCleared) return;
 
-		if (mDevice != VK_NULL_HANDLE) {
-			vkDeviceWaitIdle(mDevice);
-		}
+		//if (mDevice != VK_NULL_HANDLE) {
+		//	vkDeviceWaitIdle(mDevice);
+		//}
 		CleanupSwapchainResources();
 
 		mTextureLoader->ClearResources();
 
 		if (mDescriptorPool != VK_NULL_HANDLE) {
-			vkDestroyDescriptorPool(mDevice, mDescriptorPool, nullptr);
+			// vkDestroyDescriptorPool(mDevice, mDescriptorPool, nullptr);
 			mDescriptorPool = VK_NULL_HANDLE; // DESCRIPTOR POOL RESET
 		}
 		if (mDescriptorSetLayout != VK_NULL_HANDLE) {
-			vkDestroyDescriptorSetLayout(mDevice, mDescriptorSetLayout, nullptr);
+			//vkDestroyDescriptorSetLayout(mDevice, mDescriptorSetLayout, nullptr);
 			mDescriptorSetLayout = VK_NULL_HANDLE; // DESCRIPTOR SET LAYOUT RESET
 		}
 
 		// Buffers cleanup
 
 		for (uint32_t i = 0; i < MAX_ONGOING_FRAMES; ++i) {
-			if (mUniformBuffers[i] != VK_NULL_HANDLE) {
-				vkDestroyBuffer(mDevice, mUniformBuffers[i], nullptr);
-				mUniformBuffers[i] = VK_NULL_HANDLE; // UNIFORM BUFFER RESET
-			}
-			if (mUniformBuffersMemory[i] != VK_NULL_HANDLE) {
-				vkFreeMemory(mDevice, mUniformBuffersMemory[i], nullptr);
-				mUniformBuffersMemory[i] = VK_NULL_HANDLE; // UNIFORM BUFFER MEMORY RESET
-			}
+			//if (mUniformBuffers[i] != VK_NULL_HANDLE) {
+			//	vkDestroyBuffer(mDevice, mUniformBuffers[i], nullptr);
+			//	mUniformBuffers[i] = VK_NULL_HANDLE; // UNIFORM BUFFER RESET
+			//}
+			//if (mUniformBuffersMemory[i] != VK_NULL_HANDLE) {
+			//	vkFreeMemory(mDevice, mUniformBuffersMemory[i], nullptr);
+			//	mUniformBuffersMemory[i] = VK_NULL_HANDLE; // UNIFORM BUFFER MEMORY RESET
+			//}
 		}
 
 		mMeshLoader->ClearResources();
@@ -115,44 +117,44 @@ namespace OtterEngine {
 
 		for (size_t i = 0; i < mRenderFinishedSemaphores.size(); ++i) {
 			if (mRenderFinishedSemaphores[i] != VK_NULL_HANDLE) {
-				vkDestroySemaphore(mDevice, mRenderFinishedSemaphores[i], nullptr);
+				//vkDestroySemaphore(mDevice, mRenderFinishedSemaphores[i], nullptr);
 			}
 		}
 		mRenderFinishedSemaphores.clear();
 
 		for (size_t i = 0; i < MAX_ONGOING_FRAMES; ++i) {
 			if (mImageAvailableSemaphores[i] != VK_NULL_HANDLE) {
-				vkDestroySemaphore(mDevice, mImageAvailableSemaphores[i], nullptr);
+				//vkDestroySemaphore(mDevice, mImageAvailableSemaphores[i], nullptr);
 			}
 			if (mActiveFences[i] != VK_NULL_HANDLE) {
-				vkDestroyFence(mDevice, mActiveFences[i], nullptr);
+				//vkDestroyFence(mDevice, mActiveFences[i], nullptr);
 			}
 		}
 		mImageAvailableSemaphores.clear();
 		mActiveFences.clear();
 
-		if (mCommandPool != VK_NULL_HANDLE) {
-			vkDestroyCommandPool(mDevice, mCommandPool, nullptr);
-			mCommandPool = VK_NULL_HANDLE; // COMMAND POOL RESET
-		}
+		//if (mCommandPool != VK_NULL_HANDLE) {
+		//	vkDestroyCommandPool(mDevice, mCommandPool, nullptr);
+		//	mCommandPool = VK_NULL_HANDLE; // COMMAND POOL RESET
+		//}
 
-		if (mDevice != VK_NULL_HANDLE) {
-			vkDestroyDevice(mDevice, nullptr);
-			mDevice = VK_NULL_HANDLE; // DEVICE RESET
-		}
+		//if (mDevice != VK_NULL_HANDLE) {
+		//	vkDestroyDevice(mDevice, nullptr);
+		//	mDevice = VK_NULL_HANDLE; // DEVICE RESET
+		//}
 
-		if (mEnableValidationLayers) {
-			mVkDebugger->DestroyDebugUtilsMessengerEXT(mInstance, nullptr);
-			mVkDebugger.reset(); // DEBUG MESSENGER RESET
-		}
-		if (mSurface != VK_NULL_HANDLE) {
-			vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
-			mSurface = VK_NULL_HANDLE; // SURFACE RESET
-		}
-		if (mInstance != VK_NULL_HANDLE) {
-			vkDestroyInstance(mInstance, nullptr);
-			mInstance = VK_NULL_HANDLE; // INSTANCE RESET
-		}
+		//if (mEnableValidationLayers) {
+		//	mVkDebugger->DestroyDebugUtilsMessengerEXT(mInstance, nullptr);
+		//	mVkDebugger.reset(); // DEBUG MESSENGER RESET
+		//}
+		//if (mSurface != VK_NULL_HANDLE) {
+		//	vkDestroySurfaceKHR(mInstance, mSurface, nullptr);
+		//	mSurface = VK_NULL_HANDLE; // SURFACE RESET
+		//}
+		//if (mInstance != VK_NULL_HANDLE) {
+		//	vkDestroyInstance(mInstance, nullptr);
+		//	mInstance = VK_NULL_HANDLE; // INSTANCE RESET
+		//}
 
 		mIsCleared = true;
 	}
@@ -166,28 +168,28 @@ namespace OtterEngine {
 		glfwGetFramebufferSize(pWindow, &width, &height);
 		if (width == 0 || height == 0) return;
 
-		vkWaitForFences(mDevice, 1, &mActiveFences[mCurrentFrame], VK_TRUE, UINT64_MAX);
+		//vkWaitForFences(mDevice, 1, &mActiveFences[mCurrentFrame], VK_TRUE, UINT64_MAX);
 
 		uint32_t imageIndex = 0;
-		VkResult nextImage = vkAcquireNextImageKHR(
-			mDevice,
-			mSwapchain,
-			UINT64_MAX,
-			mImageAvailableSemaphores[mCurrentFrame],
-			VK_NULL_HANDLE,
-			&imageIndex);
+		//VkResult nextImage = vkAcquireNextImageKHR(
+		//	mDevice,
+		//	mSwapchain,
+		//	UINT64_MAX,
+		//	mImageAvailableSemaphores[mCurrentFrame],
+		//	VK_NULL_HANDLE,
+		//	&imageIndex);
 
-		if (nextImage == VK_ERROR_OUT_OF_DATE_KHR) {
-			RecreateSwapchain();
-			return;
-		}
+		//if (nextImage == VK_ERROR_OUT_OF_DATE_KHR) {
+		//	RecreateSwapchain();
+		//	return;
+		//}
 
-		if (nextImage == VK_SUBOPTIMAL_KHR) {
-			OTTER_CORE_WARNING("[VULKAN RENDERER] Failed to acquire optimal swapchain image!");
-		}
-		else if (nextImage != VK_SUCCESS) {
-			OTTER_ASSERT(false, "[VULKAN RENDERER] Swapchain image acquisition failed! VkResult: {}", VulkanUtility::VkResultToString(nextImage));
-		}
+		//if (nextImage == VK_SUBOPTIMAL_KHR) {
+		//	OTTER_CORE_WARNING("[VULKAN RENDERER] Failed to acquire optimal swapchain image!");
+		//}
+		//else if (nextImage != VK_SUCCESS) {
+		//	OTTER_FATAL("[VULKAN RENDERER] Swapchain image acquisition failed! VkResult: {}", VulkanUtility::VkResultToString(nextImage));
+		//}
 
 		if (mImagesInFlight[imageIndex] != VK_NULL_HANDLE) {
 			vkWaitForFences(mDevice, 1, &mImagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
@@ -218,8 +220,7 @@ namespace OtterEngine {
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signalSemaphores;
 
-		VkResult res = vkQueueSubmit(mGraphicsQueue, 1, &submitInfo, mActiveFences[mCurrentFrame]);
-		OTTER_ASSERT(res == VK_SUCCESS, "[VULKAN RENDERER] Failed to submit draw command buffer!");
+		VK_CHECK(vkQueueSubmit(mGraphicsQueue, 1, &submitInfo, mActiveFences[mCurrentFrame]));
 
 		VkPresentInfoKHR presentInfo{};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -232,48 +233,54 @@ namespace OtterEngine {
 		presentInfo.pSwapchains = swapchains;
 		presentInfo.pImageIndices = &imageIndex;
 
-		
-		VkResult presentResult = vkQueuePresentKHR(mPresentQueue, &presentInfo);
-		OTTER_ASSERT(presentResult == VK_SUCCESS || presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR, "[VULKAN RENDERER] Failed to present swapchain image!");
 
-		if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
+		VkResult presentResult = vkQueuePresentKHR(mPresentQueue, &presentInfo);
+
+		if (presentResult == VK_ERROR_OUT_OF_DATE_KHR) {
+			OTTER_CORE_WARNING("[VULKAN RENDERER] Swapchain is out of date, recreating...");
 			RecreateSwapchain();
 		}
-		
+		else if (presentResult == VK_SUBOPTIMAL_KHR) {
+			OTTER_CORE_WARNING("[VULKAN RENDERER] Swapchain is suboptimal after presentation.");
+			RecreateSwapchain();
+		}
+		else if (presentResult != VK_SUCCESS) {
+			OTTER_FATAL("[VULKAN RENDERER] Failed to present swapchain image! VkResult {}", VulkanUtility::VkResultToString(presentResult));
+		}
+
 		mCurrentFrame = (mCurrentFrame + 1) % MAX_ONGOING_FRAMES;
 	}
 
 	void VulkanRenderer::CreateVulkanInstance() {
-		VkApplicationInfo appInfo{};
+		constexpr vk::ApplicationInfo appInfo{ .pApplicationName = "Otter VkRenderer Engine",
+											  .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
+											  .pEngineName = "Otter Engine",
+											  .engineVersion = VK_MAKE_VERSION(1, 0, 0),
+											  .apiVersion = vk::ApiVersion14 };
 
-		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+		// Get the required instance extensions from GLFW.
+		uint32_t glfwExtensionCount = 0;
+		auto glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-		appInfo.pApplicationName = "Otter VKRender Engine";
-		appInfo.pEngineName = "Otter Engine";
-
-		appInfo.applicationVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
-		appInfo.engineVersion = VK_MAKE_API_VERSION(0, 0, 1, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_3;
-
-		uint32_t glfwExtensionsCount = 0;
-		const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionsCount); // C-style array of strings for extensions' names
-
-		OTTER_ASSERT(glfwExtensions != nullptr, "[VULKAN RENDERER] Failed to get GLFW required instance extensions for Vulkan!");
-
-		std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionsCount);
-
-		if (mEnableValidationLayers) {
-			extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME); // Enable debug utils extension for validation layers
+		// Check if the required GLFW extensions are supported by the Vulkan implementation.
+		auto extensionProperties = mContext.enumerateInstanceExtensionProperties();
+		for (uint32_t i = 0; i < glfwExtensionCount; ++i)
+		{
+			if (std::ranges::none_of(extensionProperties,
+				[glfwExtension = glfwExtensions[i]](auto const& extensionProperty) { return strcmp(extensionProperty.extensionName, glfwExtension) == 0; }))
+			{
+				throw std::runtime_error("Required GLFW extension not supported: " + std::string(glfwExtensions[i]));
+			}
 		}
+
+		vk::InstanceCreateInfo createInfo{
+			.pApplicationInfo = &appInfo,
+			.enabledExtensionCount = glfwExtensionCount,
+			.ppEnabledExtensionNames = glfwExtensions };
+
+		mInstance = vk::raii::Instance(mContext, createInfo);
+
 		bool enableValidation = VulkanUtility::CheckValidationLayerSupport(mValidationLayers);
-
-		VkInstanceCreateInfo createInfo{};
-
-		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-		createInfo.pApplicationInfo = &appInfo;
-
-		createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-		createInfo.ppEnabledExtensionNames = extensions.data();
 
 		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
 		if (enableValidation) {
@@ -293,27 +300,25 @@ namespace OtterEngine {
 			OTTER_CORE_WARNING("[VULKAN RENDERER] Validation layers not found. To see debug logs, install the Vulkan SDK from LunarG.");
 		}
 
-		VkResult res = vkCreateInstance(&createInfo, nullptr, &mInstance);
-		OTTER_ASSERT(res == VK_SUCCESS, "[VULKAN RENDERER] Failed to create Vulkan renderer!");
+		//VK_CHECK(vkCreateInstance(&createInfo, nullptr, &mInstance));
 	}
 
 	void VulkanRenderer::CreateSurface() {
 		if (pWindow == nullptr) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] GLFW window is null! Unable to create Vulkan surface!");
-			throw std::runtime_error("GLFW window is null! Unable to create Vulkan surface!");
+			OTTER_FATAL("[VULKAN RENDERER] GLFW window is null! Unable to create Vulkan surface!");
 		}
 
-		if (glfwCreateWindowSurface(mInstance, pWindow, nullptr, &mSurface) != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create Vulkan surface!");
-			throw std::runtime_error("Failed to create Vulkan surface!");
-		}
+		VK_CHECK(glfwCreateWindowSurface(mInstance, pWindow, nullptr, &mSurface));
+
 	}
 
 	void VulkanRenderer::PickPhysicalDevice() {
 		uint32_t deviceCount = 0;
 		vkEnumeratePhysicalDevices(mInstance, &deviceCount, nullptr);
 
-		OTTER_ASSERT(deviceCount > 0, "[VULKAN RENDERER] No GPU supporting Vulkan found!");
+		if (deviceCount <= 0) {
+			OTTER_FATAL("[VULKAN RENDERER] No GPU supporting Vulkan found!");
+		}
 
 		std::vector<VkPhysicalDevice> devices(deviceCount);
 		vkEnumeratePhysicalDevices(mInstance, &deviceCount, devices.data());
@@ -325,7 +330,9 @@ namespace OtterEngine {
 			}
 		}
 
-		OTTER_ASSERT(mPhysicalDevice != VK_NULL_HANDLE, "[VULKAN RENDERER] Failed to find a suitable GPU for Vulkan rendering!");
+		if (mPhysicalDevice == VK_NULL_HANDLE) {
+			OTTER_FATAL("[VULKAN RENDERER] Failed to find a suitable GPU for Vulkan rendering!");
+		}
 
 		OTTER_CORE_LOG("[VULKAN RENDERER] | ================= Selected GPU for Vulkan rendering! ================= |");
 
@@ -365,7 +372,9 @@ namespace OtterEngine {
 	void VulkanRenderer::CreateLogicalDevice() {
 		QueueFamilyIndices indices = VulkanUtility::FindQueueFamilies(mPhysicalDevice, mSurface);
 
-		OTTER_ASSERT(indices.IsComplete(), "[VULKAN RENDERER] Queue family indices incomplete!");
+		if (!indices.IsComplete()) {
+			OTTER_FATAL("[VULKAN RENDERER] Queue family indices incomplete!");
+		}
 
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 		std::set<uint32_t> uniqueQueueFamilies = { indices.mGraphicsFamily.value(), indices.mPresentFamily.value() };
@@ -402,9 +411,7 @@ namespace OtterEngine {
 			createInfo.enabledLayerCount = 0;
 		}
 
-		VkResult res = vkCreateDevice(mPhysicalDevice, &createInfo, nullptr, &mDevice);
-
-		OTTER_ASSERT(res == VK_SUCCESS, "[VULKAN RENDERER] Failed to create logical device for Vulkan!");
+		VK_CHECK(vkCreateDevice(mPhysicalDevice, &createInfo, nullptr, &mDevice));
 
 		vkGetDeviceQueue(mDevice, indices.mGraphicsFamily.value(), 0, &mGraphicsQueue);
 		vkGetDeviceQueue(mDevice, indices.mPresentFamily.value(), 0, &mPresentQueue);
@@ -421,10 +428,7 @@ namespace OtterEngine {
 		info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 		info.queueFamilyIndex = indices.mGraphicsFamily.value();
 
-		if (vkCreateCommandPool(mDevice, &info, nullptr, &mCommandPool) != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create command pool!");
-			throw std::runtime_error("Failed to create command pool!");
-		}
+		VK_CHECK(vkCreateCommandPool(mDevice, &info, nullptr, &mCommandPool));
 	}
 
 	void VulkanRenderer::CreateDepthResources()
@@ -496,10 +500,7 @@ namespace OtterEngine {
 		createInfo.presentMode = presentMode;
 		createInfo.clipped = VK_TRUE;
 
-		if (vkCreateSwapchainKHR(mDevice, &createInfo, nullptr, &mSwapchain) != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create Vulkan swapchain!");
-			throw std::runtime_error("Failed to create Vulkan swapchain!");
-		}
+		VK_CHECK(vkCreateSwapchainKHR(mDevice, &createInfo, nullptr, &mSwapchain));
 
 		vkGetSwapchainImagesKHR(mDevice, mSwapchain, &imageCount, nullptr);
 		mSwapchainImages.resize(imageCount);
@@ -578,10 +579,7 @@ namespace OtterEngine {
 		renderPassInfo.dependencyCount = 1;
 		renderPassInfo.pDependencies = &dependency;
 
-		if (vkCreateRenderPass(mDevice, &renderPassInfo, nullptr, &mRenderPass) != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create render pass!");
-			throw std::runtime_error("Failed to create render pass!");
-		}
+		VK_CHECK(vkCreateRenderPass(mDevice, &renderPassInfo, nullptr, &mRenderPass));
 	}
 
 	void VulkanRenderer::CreateFramebuffers() {
@@ -599,9 +597,7 @@ namespace OtterEngine {
 			info.height = mSwapchainExtent.height;
 			info.layers = 1;
 
-			if (vkCreateFramebuffer(mDevice, &info, nullptr, &mSwapchainFramebuffers[i]) != VK_SUCCESS) {
-				OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create framebuffer!");
-			}
+			VK_CHECK(vkCreateFramebuffer(mDevice, &info, nullptr, &mSwapchainFramebuffers[i]));
 		}
 	}
 
@@ -638,10 +634,7 @@ namespace OtterEngine {
 		poolInfo.pPoolSizes = poolSizes.data();
 		poolInfo.maxSets = MAX_ONGOING_FRAMES;
 
-		if (vkCreateDescriptorPool(mDevice, &poolInfo, nullptr, &mDescriptorPool) != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create descriptor pool!");
-			throw std::runtime_error("Failed to create descriptor pool!");
-		}
+		VK_CHECK(vkCreateDescriptorPool(mDevice, &poolInfo, nullptr, &mDescriptorPool));
 	}
 
 	void VulkanRenderer::CreateDescriptorSets()
@@ -655,10 +648,8 @@ namespace OtterEngine {
 		allocInfo.pSetLayouts = layouts.data();
 
 		mDescriptorSets.resize(MAX_ONGOING_FRAMES);
-		if (vkAllocateDescriptorSets(mDevice, &allocInfo, mDescriptorSets.data()) != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to allocate descriptor sets!");
-			throw std::runtime_error("Failed to allocate descriptor sets!");
-		}
+
+		VK_CHECK(vkAllocateDescriptorSets(mDevice, &allocInfo, mDescriptorSets.data()));
 
 		for (uint32_t i = 0; i < MAX_ONGOING_FRAMES; ++i) {
 			VkDescriptorBufferInfo bufferInfo{};
@@ -704,10 +695,7 @@ namespace OtterEngine {
 		cbAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		cbAllocInfo.commandBufferCount = static_cast<uint32_t>(mCommandBuffers.size());
 
-		if (vkAllocateCommandBuffers(mDevice, &cbAllocInfo, mCommandBuffers.data()) != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to allocate command buffers!");
-			throw std::runtime_error("Failed to allocate command buffers!");
-		}
+		VK_CHECK(vkAllocateCommandBuffers(mDevice, &cbAllocInfo, mCommandBuffers.data()));
 	}
 
 	void VulkanRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) {
@@ -715,10 +703,7 @@ namespace OtterEngine {
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-		if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to begin recording command buffer!");
-			throw std::runtime_error("Failed to begin recording command buffer!");
-		}
+		VK_CHECK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -774,10 +759,7 @@ namespace OtterEngine {
 
 		vkCmdEndRenderPass(commandBuffer);
 
-		if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to record command buffer!");
-			throw std::runtime_error("Failed to record command buffer!");
-		}
+		VK_CHECK(vkEndCommandBuffer(commandBuffer));
 	}
 
 	void VulkanRenderer::CreateSyncObjects() {
@@ -793,24 +775,16 @@ namespace OtterEngine {
 		fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
 		for (size_t i = 0; i < MAX_ONGOING_FRAMES; i++) {
-			if (vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &mImageAvailableSemaphores[i]) != VK_SUCCESS) {
-				OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create image available semaphore!");
-				throw std::runtime_error("Failed to create image available semaphore!");
-			}
+			VK_CHECK(vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &mImageAvailableSemaphores[i]));
 		}
 
 		for (size_t i = 0; i < mSwapchainImages.size(); i++) {
-			if (vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &mRenderFinishedSemaphores[i]) != VK_SUCCESS) {
-				OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create render finished semaphore!");
-				throw std::runtime_error("Failed to create render finished semaphore!");
-			}
+			VK_CHECK(vkCreateSemaphore(mDevice, &semaphoreInfo, nullptr, &mRenderFinishedSemaphores[i]));
 		}
 
 		for (size_t i = 0; i < MAX_ONGOING_FRAMES; i++) {
-			if (vkCreateFence(mDevice, &fenceInfo, nullptr, &mActiveFences[i]) != VK_SUCCESS) {
-				OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create fence!");
-				throw std::runtime_error("Failed to create fence!");
-			}
+			VK_CHECK(vkCreateFence(mDevice, &fenceInfo, nullptr, &mActiveFences[i]));
+
 		}
 
 		mImagesInFlight.resize(mSwapchainImages.size(), VK_NULL_HANDLE);
@@ -899,10 +873,14 @@ namespace OtterEngine {
 
 	VkShaderModule VulkanRenderer::CreateShaderModule(const std::vector<char>& shader) const
 	{
-		OTTER_ASSERT(!shader.empty(), "[VULKAN RENDERER] Shader code is empty!");
+		if (shader.empty()) {
+			OTTER_FATAL("[VULKAN RENDERER] Shader code is empty!");
+		}
 
 		// Ensure the size is a multiple of 4, as required by Vulkan for pCode
-		OTTER_ASSERT(shader.size() % 4 == 0, "[VULKAN RENDERER] Shader SPIR-V size not multiple of 4 (size: {})", shader.size());
+		if (shader.size() % 4 != 0) {
+			OTTER_FATAL("[VULKAN RENDERER] Shader SPIR-V size not multiple of 4 (size: {})", shader.size());
+		}
 
 		VkShaderModuleCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -910,10 +888,8 @@ namespace OtterEngine {
 		createInfo.pCode = reinterpret_cast<const uint32_t*>(shader.data());
 
 		VkShaderModule shaderModule = VK_NULL_HANDLE;
-		
-		VkResult res = vkCreateShaderModule(mDevice, &createInfo, nullptr, &shaderModule);
 
-		OTTER_ASSERT(res == VK_SUCCESS, "[VULKAN RENDERER] Failed to create shader module! VkResult = {}", std::string(VulkanUtility::VkResultToString(res)));
+		VK_CHECK(vkCreateShaderModule(mDevice, &createInfo, nullptr, &shaderModule));
 
 		return shaderModule;
 	}
@@ -1021,10 +997,7 @@ namespace OtterEngine {
 		pipelineLayoutInfo.pSetLayouts = &mDescriptorSetLayout;
 		pipelineLayoutInfo.pushConstantRangeCount = 0;
 
-		if (vkCreatePipelineLayout(mDevice, &pipelineLayoutInfo, nullptr, &mPipelineLayout) != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create pipeline layout!");
-			throw std::runtime_error("Failed to create pipeline layout!");
-		}
+		VK_CHECK(vkCreatePipelineLayout(mDevice, &pipelineLayoutInfo, nullptr, &mPipelineLayout));
 
 		// Depth Stencil
 		VkPipelineDepthStencilStateCreateInfo depthStencil{};
@@ -1067,12 +1040,7 @@ namespace OtterEngine {
 		//		i, attr.location, attr.binding, attr.format, attr.offset);
 		//}
 
-		VkResult res = vkCreateGraphicsPipelines(mDevice, nullptr, 1, &pipelineInfo, nullptr, &mGraphicsPipeline);
-
-		if (res != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create graphics pipeline! VkResult = {}", static_cast<int>(res));
-			throw std::runtime_error("Failed to create graphics pipeline!");
-		}
+		VK_CHECK(vkCreateGraphicsPipelines(mDevice, nullptr, 1, &pipelineInfo, nullptr, &mGraphicsPipeline));
 
 		OTTER_CORE_LOG("[VULKAN RENDERER] Graphics pipeline created!");
 
@@ -1104,10 +1072,7 @@ namespace OtterEngine {
 		layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
 		layoutInfo.pBindings = bindings.data();
 
-		if (vkCreateDescriptorSetLayout(mDevice, &layoutInfo, nullptr, &mDescriptorSetLayout) != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to create descriptor set layout!");
-			throw std::runtime_error("Failed to create descriptor set layout!");
-		}
+		VK_CHECK(vkCreateDescriptorSetLayout(mDevice, &layoutInfo, nullptr, &mDescriptorSetLayout));
 	}
 
 	void VulkanRenderer::UpdateUniformBuffer(uint32_t currentImage) {

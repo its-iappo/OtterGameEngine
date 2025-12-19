@@ -25,20 +25,14 @@ namespace OtterEngine {
 	}
 
 	void Application::Run() {
-		static uint16_t frameCount = 0;
 		while (mRunning) {
 			if (OtterCrashReporter::HasCrashed()) [[unlikely]] {
 				OtterCrashReporter::ShowDetailedCrashWindow();
 				mRunning = false;
 			}
 
-			if (frameCount >= 100) {
-				OTTER_ASSERT(false, "Intentional crash for testing purposes");
-			}
-
 			mWindow->OnUpdate();
 			mRenderer->DrawFrame();
-			frameCount++;
 		}
 	}
 

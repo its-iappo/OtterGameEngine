@@ -2,7 +2,8 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_raii.hpp>
+#include <cmath>
 
 #include <optional>
 
@@ -27,13 +28,13 @@ namespace OtterEngine {
 
 	private:
 		GLFWwindow* pWindow;
-		VkInstance mInstance = VK_NULL_HANDLE;
+		vk::raii::Context mContext;
+		vk::raii::Instance mInstance = nullptr;
 
 		VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
-		VkDevice mDevice = VK_NULL_HANDLE;
 		
 		VkSurfaceKHR mSurface = VK_NULL_HANDLE;
-
+		
 		static constexpr uint32_t MAX_ONGOING_FRAMES = 2;
 
 #ifdef NDEBUG
