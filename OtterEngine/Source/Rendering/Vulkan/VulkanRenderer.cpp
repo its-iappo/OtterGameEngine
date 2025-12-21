@@ -5,16 +5,23 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/gtc/matrix_transform.hpp>
 
-#include <span>
+#include <map>
+#include <string>
+#include <string.h> // C header
+#include <algorithm>
 
+#define VULKAN_HPP_NO_EXCEPTIONS
+#define VULKAN_HPP_NO_CONSTRUCTORS
+#define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
+#include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_raii.hpp>
+#include <vulkan/vulkan_structs.hpp>
 
 #include "Utils/OtterIO.h"
 #include "Rendering/Vulkan/VulkanUtility.h"
 #include "Rendering/Vulkan/VulkanMeshLoader.h" 
 #include "Rendering/Vulkan/VulkanTextureLoader.h"
 #include "Rendering/Vulkan/VulkanRenderer.h"
-#include <algorithm>
 
 
 namespace OtterEngine {
@@ -50,9 +57,12 @@ namespace OtterEngine {
 
 		SetupDebugMessenger();
 		CreateSurface();
+		
 		PickPhysicalDevice();
 		CreateLogicalDevice();
+
 		CreateSwapchain();
+		
 		CreateImageViews();
 		CreateRenderPass();
 		CreateDescriptorSetLayout();
@@ -192,14 +202,14 @@ namespace OtterEngine {
 		//}
 
 		if (mImagesInFlight[imageIndex] != VK_NULL_HANDLE) {
-			vkWaitForFences(mDevice, 1, &mImagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
+			//vkWaitForFences(mDevice, 1, &mImagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
 		}
 
 		mImagesInFlight[imageIndex] = mActiveFences[mCurrentFrame];
 
 		UpdateUniformBuffer(mCurrentFrame);
 
-		vkResetFences(mDevice, 1, &mActiveFences[mCurrentFrame]);
+		//vkResetFences(mDevice, 1, &mActiveFences[mCurrentFrame]);
 
 		vkResetCommandBuffer(mCommandBuffers[imageIndex], 0);
 		RecordCommandBuffer(mCommandBuffers[imageIndex], imageIndex);
@@ -258,86 +268,110 @@ namespace OtterEngine {
 											  .engineVersion = VK_MAKE_VERSION(1, 0, 0),
 											  .apiVersion = vk::ApiVersion14 };
 
-		// Get the required instance extensions from GLFW.
-		uint32_t glfwExtensionCount = 0;
-		auto glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+		// char* const is an immutable pointer to char
+		std::vector<char* const> requiredLayers;
+		if (mEnableValidationLayers) {
+			requiredLayers.assign(mValidationLayers.begin(), mValidationLayers.end());
+		}
 
-		// Check if the required GLFW extensions are supported by the Vulkan implementation.
-		auto extensionProperties = mContext.enumerateInstanceExtensionProperties();
-		for (uint32_t i = 0; i < glfwExtensionCount; ++i)
+		auto layerProps = mContext.enumerateInstanceLayerProperties();
+
+		// Are these layers supported?
+		for (auto const& requiredLayer : requiredLayers)
 		{
-			if (std::ranges::none_of(extensionProperties,
-				[glfwExtension = glfwExtensions[i]](auto const& extensionProperty) { return strcmp(extensionProperty.extensionName, glfwExtension) == 0; }))
+			if (std::ranges::none_of(layerProps,
+				[requiredLayer](auto const& layerProperty) { return strcmp(layerProperty.layerName, requiredLayer) == 0; }))
 			{
-				throw std::runtime_error("Required GLFW extension not supported: " + std::string(glfwExtensions[i]));
+				OTTER_CORE_CRITICAL("[VULKAN RENDERER] Required layer not supported: " + std::string(requiredLayer));
+			}
+		}
+
+		// Get the required instance extensions from GLFW.
+		auto reqExtensions = GetRequiredExtensions();
+
+		// Are these GLFW extensions supported?
+		auto extensionProperties = mContext.enumerateInstanceExtensionProperties();
+		for (auto const& ext : reqExtensions)
+		{
+			if (std::ranges::none_of(extensionProperties, [ext](auto const& extProp)
+				{return strcmp(extProp.extensionName, ext) == 0; }))
+			{
+				OTTER_CORE_CRITICAL("[VULKAN RENDERER] Required GLFW extension not supported: " + std::string(ext));
 			}
 		}
 
 		vk::InstanceCreateInfo createInfo{
 			.pApplicationInfo = &appInfo,
-			.enabledExtensionCount = glfwExtensionCount,
-			.ppEnabledExtensionNames = glfwExtensions };
+			.enabledLayerCount = static_cast<uint32_t>(requiredLayers.size()),
+			.enabledExtensionCount = static_cast<uint32_t>(reqExtensions.size()),
+			.ppEnabledExtensionNames = reqExtensions.data() };
 
 		mInstance = vk::raii::Instance(mContext, createInfo);
-
-		bool enableValidation = VulkanUtility::CheckValidationLayerSupport(mValidationLayers);
-
-		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-		if (enableValidation) {
-			// Enable validation layers
-			createInfo.enabledLayerCount = static_cast<uint32_t>(mValidationLayers.size());
-			createInfo.ppEnabledLayerNames = mValidationLayers.data();
-
-			mVkDebugger->PopulateDebugMessengerCreateInfo(debugCreateInfo);
-			createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
-
-			OTTER_CORE_LOG("[VULKAN RENDERER] Validation layers enabled! Populating debug messenger.");
-		}
-		else {
-			// Disable validation layers
-			createInfo.enabledLayerCount = 0;
-			createInfo.pNext = nullptr;
-			OTTER_CORE_WARNING("[VULKAN RENDERER] Validation layers not found. To see debug logs, install the Vulkan SDK from LunarG.");
-		}
-
-		//VK_CHECK(vkCreateInstance(&createInfo, nullptr, &mInstance));
 	}
 
 	void VulkanRenderer::CreateSurface() {
 		if (pWindow == nullptr) {
-			OTTER_FATAL("[VULKAN RENDERER] GLFW window is null! Unable to create Vulkan surface!");
+			OTTER_FATAL("[VULKAN RENDERER] GLFW Window pointer is null!");
 		}
 
-		VK_CHECK(glfwCreateWindowSurface(mInstance, pWindow, nullptr, &mSurface));
-
+		VkSurfaceKHR surface;
+		if (glfwCreateWindowSurface(*mInstance, pWindow, nullptr, &surface) != 0) {
+			OTTER_FATAL("[VULKAN RENDERER] Unable to create Vulkan surface!");
+		}
+		mSurface = vk::raii::SurfaceKHR(mInstance, surface);
 	}
 
 	void VulkanRenderer::PickPhysicalDevice() {
-		uint32_t deviceCount = 0;
-		vkEnumeratePhysicalDevices(mInstance, &deviceCount, nullptr);
 
-		if (deviceCount <= 0) {
-			OTTER_FATAL("[VULKAN RENDERER] No GPU supporting Vulkan found!");
-		}
+		auto devices = mInstance.enumeratePhysicalDevices();
 
-		std::vector<VkPhysicalDevice> devices(deviceCount);
-		vkEnumeratePhysicalDevices(mInstance, &deviceCount, devices.data());
+		OTTER_ASSERT(!devices.empty(), "[VULKAN RENDERER] No device supporting Vulkan found!");
 
-		for (const VkPhysicalDevice& device : devices) {
-			if (VulkanUtility::IsDeviceSuitable(device, mSurface, mDeviceExtensions)) {
-				mPhysicalDevice = device;
-				break;
-			}
-		}
+		const auto iterator = std::ranges::find_if(devices, 
+			[&](auto const& device) {
+
+				bool isSuitable = device.getProperties().apiVersion >= VK_API_VERSION_1_3;
+				auto queueFams = device.getQueueFamilyProperties();
+				
+				bool supportsGraphics = std::ranges::any_of(queueFams, [](auto const& qfp) 
+					{return !!(qfp.queueFlags & vk::QueueFlagBits::eGraphics); });
+				
+				const auto queueFamIter = std::ranges::find_if(queueFams,
+					[](vk::QueueFamilyProperties const& qfp) {
+						return (qfp.queueFlags & vk::QueueFlagBits::eGraphics) != static_cast<vk::QueueFlags>(0);
+					});
+				
+				auto availableDeviceExtensions = device.enumerateDeviceExtensionProperties();
+				bool supportsAllRequiredExtensions =
+					std::ranges::all_of(mDeviceExtensions,
+						[&availableDeviceExtensions](auto const& requiredDeviceExtension) {
+							return std::ranges::any_of(availableDeviceExtensions,
+								[requiredDeviceExtension](auto const& availableDeviceExtension) \
+							{ return strcmp(availableDeviceExtension.extensionName, requiredDeviceExtension) == 0; });
+						});
+
+				// The two .template tell the compiler that getFeatures2 and get are template functions
+
+				auto features = device.template getFeatures2<
+					vk::PhysicalDeviceFeatures2, 
+					vk::PhysicalDeviceVulkan13Features, 
+					vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
+				bool supportsRequiredFeatures = features.template get<vk::PhysicalDeviceVulkan13Features>().dynamicRendering &&
+					features.template get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>().extendedDynamicState;
+
+				return isSuitable && supportsGraphics && supportsAllRequiredExtensions && supportsRequiredFeatures;
+			});
+
+		OTTER_ASSERT(iterator != devices.end(), "[VULKAN RENDERER] Failed to find a suitable GPU for Vulkan rendering!");
+
 
 		if (mPhysicalDevice == VK_NULL_HANDLE) {
-			OTTER_FATAL("[VULKAN RENDERER] Failed to find a suitable GPU for Vulkan rendering!");
+			OTTER_FATAL("");
 		}
 
 		OTTER_CORE_LOG("[VULKAN RENDERER] | ================= Selected GPU for Vulkan rendering! ================= |");
 
-		VkPhysicalDeviceProperties deviceProperties{};
-		vkGetPhysicalDeviceProperties(mPhysicalDevice, &deviceProperties);
+		auto deviceProperties = mPhysicalDevice.getProperties();
 
 		OTTER_CORE_LOG("[VULKAN RENDERER] | Device name: {}", deviceProperties.deviceName);
 		OTTER_CORE_LOG("[VULKAN RENDERER] | Device type: {}", VulkanUtility::VkPhysicalDeviceTypeToString(deviceProperties.deviceType));
@@ -358,8 +392,7 @@ namespace OtterEngine {
 		OTTER_CORE_LOG("[VULKAN RENDERER] | ================= ++++++++++++++++++++++++++++++++++ ================= |");
 		OTTER_CORE_LOG("[VULKAN RENDERER] | ================= Device memory flags found for GPU: ================= |");
 
-		VkPhysicalDeviceMemoryProperties memProperties{};
-		vkGetPhysicalDeviceMemoryProperties(mPhysicalDevice, &memProperties);
+		auto memProperties = mPhysicalDevice.getMemoryProperties();
 
 		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
 			OTTER_CORE_LOG("[VULKAN RENDERER] [{}] Memory Type: flags=0x{:x}",
@@ -370,53 +403,53 @@ namespace OtterEngine {
 	}
 
 	void VulkanRenderer::CreateLogicalDevice() {
-		QueueFamilyIndices indices = VulkanUtility::FindQueueFamilies(mPhysicalDevice, mSurface);
+		std::vector<vk::QueueFamilyProperties> queueFamilyProperties = mPhysicalDevice.getQueueFamilyProperties();
+		
+		uint32_t queueIndex = ~0; // All bits to 1 -> Invalid flag!
 
-		if (!indices.IsComplete()) {
-			OTTER_FATAL("[VULKAN RENDERER] Queue family indices incomplete!");
+		for (uint32_t qfpIndex = 0; qfpIndex < queueFamilyProperties.size(); qfpIndex++)
+		{
+			if ((queueFamilyProperties[qfpIndex].queueFlags & vk::QueueFlagBits::eGraphics) &&
+				mPhysicalDevice.getSurfaceSupportKHR(qfpIndex, *mSurface))
+			{
+				// Found a queue family that supports both graphics and present
+				queueIndex = qfpIndex;
+				break;
+			}
+		}
+		if (queueIndex == ~0) {
+			OTTER_FATAL("[VULKAN RENDERER] Cannot find a queue for graphics or present!");
+
 		}
 
-		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-		std::set<uint32_t> uniqueQueueFamilies = { indices.mGraphicsFamily.value(), indices.mPresentFamily.value() };
+		vk::StructureChain<
+			vk::PhysicalDeviceFeatures2, 
+			vk::PhysicalDeviceVulkan13Features, 
+			vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT> 
+			featureChain = {
+			{},                                   // vk::PhysicalDeviceFeatures2
+			{.dynamicRendering = true},           // vk::PhysicalDeviceVulkan13Features
+			{.extendedDynamicState = true}        // vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT
+		};
 
-		float queuePriority = 1.0f;
-		for (uint32_t queueFamily : uniqueQueueFamilies) {
-			VkDeviceQueueCreateInfo queueCreateInfo{};
-			queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-			queueCreateInfo.queueFamilyIndex = queueFamily;
-			queueCreateInfo.queueCount = 1;
-			queueCreateInfo.pQueuePriorities = &queuePriority;
-			queueCreateInfos.push_back(queueCreateInfo);
-		}
+		float priority = 0.5f;
+		vk::DeviceQueueCreateInfo devQueueCreateInfo{
+			.queueFamilyIndex = queueIndex, 
+			.queueCount = 1, 
+			.pQueuePriorities = &priority};
 
-		VkPhysicalDeviceFeatures deviceFeatures{};
-		deviceFeatures.samplerAnisotropy = VK_TRUE;
+		vk::DeviceCreateInfo devCreateInfo{
+			.pNext = &featureChain.get<vk::PhysicalDeviceFeatures2>(),
+			.queueCreateInfoCount = 1,
+			.pQueueCreateInfos = &devQueueCreateInfo,
+			.enabledExtensionCount = static_cast<uint32_t>(mDeviceExtensions.size()),
+			.ppEnabledExtensionNames = mDeviceExtensions.data()
+		};
 
-		VkDeviceCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-		createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-		createInfo.pQueueCreateInfos = queueCreateInfos.data();
+		mDevice = vk::raii::Device(mPhysicalDevice, devCreateInfo);
+		mGraphicsQueue = vk::raii::Queue(mDevice, grIndex, 0);
 
-		createInfo.pEnabledFeatures = &deviceFeatures;
-
-		createInfo.enabledExtensionCount = static_cast<uint32_t>(mDeviceExtensions.size());
-		createInfo.ppEnabledExtensionNames = mDeviceExtensions.data();
-
-
-		if (mEnableValidationLayers) {
-			createInfo.enabledLayerCount = static_cast<uint32_t>(mValidationLayers.size());
-			createInfo.ppEnabledLayerNames = mValidationLayers.data();
-		}
-		else {
-			createInfo.enabledLayerCount = 0;
-		}
-
-		VK_CHECK(vkCreateDevice(mPhysicalDevice, &createInfo, nullptr, &mDevice));
-
-		vkGetDeviceQueue(mDevice, indices.mGraphicsFamily.value(), 0, &mGraphicsQueue);
-		vkGetDeviceQueue(mDevice, indices.mPresentFamily.value(), 0, &mPresentQueue);
-
-		OTTER_CORE_LOG("[VULKAN RENDERER] Logical device and queues created succesfully!");
+		OTTER_CORE_LOG("[VULKAN RENDERER] Logical Device and Graphics Queue created succesfully!");
 	}
 
 	void VulkanRenderer::CreateCommandPool() {
@@ -462,7 +495,8 @@ namespace OtterEngine {
 
 	void VulkanRenderer::CreateSwapchain()
 	{
-		SwapchainSupportDetails swapchainSupport = VulkanUtility::QuerySwapChainSupport(mPhysicalDevice, mSurface);
+		auto surfCap = mPhysicalDevice.getSurfaceCapabilitiesKHR(*mSurface);
+		mSwapchainExtent = VulkanUtility::ChooseSwapExtent(surfCap);
 
 		VkExtent2D extent = VulkanUtility::ChooseSwapExtent(swapchainSupport.mCapabilities, pWindow);
 		VkPresentModeKHR presentMode = VulkanUtility::ChooseSwapPresentMode(swapchainSupport.mPresentModes);
@@ -1113,5 +1147,17 @@ namespace OtterEngine {
 	{
 		mVkDebugger = std::make_unique<VulkanDebugger>();
 		mVkDebugger->SetupDebugMessenger(mInstance);
+	}
+
+	std::vector<const char*> VulkanRenderer::GetRequiredExtensions() {
+		uint32_t count = 0;
+		auto glfwExtensions = glfwGetRequiredInstanceExtensions(&count);
+
+		std::vector extensions(glfwExtensions, glfwExtensions + count);
+		if (mEnableValidationLayers) {
+			extensions.push_back(vk::EXTDebugUtilsExtensionName);
+		}
+
+		return extensions;
 	}
 }

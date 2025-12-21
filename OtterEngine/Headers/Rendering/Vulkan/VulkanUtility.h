@@ -4,30 +4,13 @@
 #include <GLFW/glfw3.h>
 
 #include <array>
-#include <string>
 #include <vector>
-#include <optional>
-#include <vulkan/vulkan.h>
-
-#include "Core/Logger.h"
+#include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_raii.hpp>
 
 #include "Rendering/Vertex.h"
 
 namespace OtterEngine {
-	struct QueueFamilyIndices {
-		std::optional<uint32_t> mGraphicsFamily = UINT32_MAX;
-		std::optional<uint32_t> mPresentFamily = UINT32_MAX;
-		bool IsComplete() const {
-			return mGraphicsFamily != UINT32_MAX && mPresentFamily != UINT32_MAX;
-		}
-	};
-
-	struct SwapchainSupportDetails {
-		VkSurfaceCapabilitiesKHR mCapabilities{};
-		std::vector<VkSurfaceFormatKHR> mFormats;
-		std::vector<VkPresentModeKHR> mPresentModes;
-	};
-
 	class VulkanUtility {
 	public:
 		static uint32_t FindMemoryType(VkPhysicalDevice device, uint32_t filter, VkMemoryPropertyFlags properties);
@@ -56,7 +39,7 @@ namespace OtterEngine {
 
 		static VkFormat FindDepthFormat(VkPhysicalDevice device);
 
-		static QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
+		static uint32_t FindQueueFamilies(const vk::raii::PhysicalDevice& device);
 
 		static const char* VkResultToString(VkResult res) {
 			switch (res) {
@@ -89,26 +72,25 @@ namespace OtterEngine {
 			}
 		}
 
-		static const char* VkPhysicalDeviceTypeToString(VkPhysicalDeviceType type)
+		static const char* VkPhysicalDeviceTypeToString(const vk::PhysicalDeviceType& type)
 		{
 			switch (type)
 			{
-			case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+			case vk::PhysicalDeviceType::eIntegratedGpu:
 				return "Integrated GPU";
-			case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+				case vk::PhysicalDeviceType::eDiscreteGpu:
 				return "Discrete GPU";
-			case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+				case vk::PhysicalDeviceType::eVirtualGpu:
 				return "Virtual GPU";
-			case VK_PHYSICAL_DEVICE_TYPE_CPU:
+			case vk::PhysicalDeviceType::eCpu:
 				return "CPU";
-			case VK_PHYSICAL_DEVICE_TYPE_OTHER:
-			case VK_PHYSICAL_DEVICE_TYPE_MAX_ENUM:
+			case vk::PhysicalDeviceType::eOther:
 			default:
 				return "Unknown device type!";
 			}
 		}
 
-		static bool IsDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface, std::vector<const char*> deviceExtensions);
+		static bool IsDeviceSuitable(vk::raii::PhysicalDevice device, VkSurfaceKHR surface, std::vector<const char*> deviceExtensions);
 
 		static bool CheckDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char*> deviceExtensions);
 
@@ -116,7 +98,7 @@ namespace OtterEngine {
 
 		static VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 
-		static VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* window);
+		static VkExtent2D ChooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities, GLFWwindow* window);
 
 		static VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 

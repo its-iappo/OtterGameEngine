@@ -9,6 +9,7 @@
 
 #include <string>
 
+#include <ranges>
 #include <algorithm>
 
 #include <chrono>

@@ -1,27 +1,34 @@
 #include "OtterPCH.h"
 
+#define VULKAN_HPP_NO_EXCEPTIONS
+#define VULKAN_HPP_NO_CONSTRUCTORS
+#define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
+#include <vulkan/vulkan_raii.hpp>
+
 #include "Rendering/Vulkan/VulkanDebugger.h"
 
 namespace OtterEngine {
-	void VulkanDebugger::SetupDebugMessenger(VkInstance instance) {
-		VkDebugUtilsMessengerCreateInfoEXT createInfo;
-		PopulateDebugMessengerCreateInfo(createInfo);
+	void VulkanDebugger::SetupDebugMessenger(const vk::raii::Instance& instance) {
 
-		if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr) != VK_SUCCESS) {
-			OTTER_CORE_CRITICAL("[VULKAN RENDERER] Failed to set up debug messenger!")
-		}
+		vk::DebugUtilsMessageSeverityFlagsEXT sevFlags(
+			vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
+			vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+			vk::DebugUtilsMessageSeverityFlagBitsEXT::eError);
+
+		vk::DebugUtilsMessageTypeFlagsEXT msgTypeFlags(
+			vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+			vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
+			vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation);
+
+		vk::DebugUtilsMessengerCreateInfoEXT  debugUtilsMessengerCreateInfoEXT{
+			 .messageSeverity = sevFlags,
+			 .messageType = msgTypeFlags,
+			 .pfnUserCallback = &debugCallback };
+
+		mDebugMessenger = instance.createDebugUtilsMessengerEXT(debugUtilsMessengerCreateInfoEXT);
 	}
 
-	void VulkanDebugger::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
-	{
-		createInfo = {};
-		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-		createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-		createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-		createInfo.pfnUserCallback = debugCallback;
-	}
-
-	VkResult VulkanDebugger::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator)
+	VkResult VulkanDebugger::CreateDebugUtilsMessengerEXT(vk::raii::Instance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator)
 	{
 		auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
 		if (func != nullptr) {
@@ -33,7 +40,7 @@ namespace OtterEngine {
 		}
 	}
 
-	void VulkanDebugger::DestroyDebugUtilsMessengerEXT(VkInstance instance, const VkAllocationCallbacks* pAllocator)
+	void VulkanDebugger::DestroyDebugUtilsMessengerEXT(vk::raii::Instance instance, const VkAllocationCallbacks* pAllocator)
 	{
 		auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
 		if (func != nullptr) {
@@ -42,23 +49,18 @@ namespace OtterEngine {
 		}
 	}
 
-	VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugger::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
-
-		switch (messageSeverity) {
-		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+	VKAPI_ATTR vk::Bool32 VKAPI_CALL VulkanDebugger::debugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT severity, vk::DebugUtilsMessageTypeFlagsEXT messageType, const vk::DebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
+		
+		if (severity <= vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo) {
 			OTTER_CORE_LOG("[VULKAN RENDERER DEBUG LOG CBK]\n{}", pCallbackData->pMessage);
-			break;
-		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+		}
+		else if (severity == vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning) {
 			OTTER_CORE_WARNING("[VULKAN RENDERER DEBUG WARNING CBK]\n{}", pCallbackData->pMessage);
-			break;
-		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+		}
+		else {
 			OTTER_CORE_ERROR("[VULKAN RENDERER DEBUG ERROR CBK]\n{}", pCallbackData->pMessage);
-			break;
-		default:
-			break;
 		}
 
-		return VK_FALSE;
+		return vk::False;
 	}
 }

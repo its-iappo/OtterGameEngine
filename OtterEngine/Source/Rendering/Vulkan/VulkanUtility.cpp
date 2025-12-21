@@ -1,5 +1,6 @@
 #include "OtterPCH.h"
 
+#include <vulkan/vulkan_raii.hpp>
 #include "Rendering/Vulkan/VulkanUtility.h"
 
 namespace OtterEngine {
@@ -300,59 +301,23 @@ namespace OtterEngine {
 			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 	};
 
-	QueueFamilyIndices VulkanUtility::FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface) {
+	uint32_t VulkanUtility::FindQueueFamilies(const vk::raii::PhysicalDevice& device) {
 		
-		QueueFamilyIndices indices;
+		std::vector<vk::QueueFamilyProperties> queueFamilyProperties = device.getQueueFamilyProperties();
 
-		uint32_t queueFamilyCount = 0;
-		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
-
-		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
-
-		int i = 0;
-		for (const auto& queueFamily : queueFamilies) {
-			if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-				indices.mGraphicsFamily = i;
-			}
-
-			VkBool32 presentSupport = false;
-
-			vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
-
-			if (presentSupport) {
-				indices.mPresentFamily = i;
-			}
-
-			if (indices.IsComplete()) {
-				break;
-			}
-
-			i++;
-		}
-
-		return indices;
+		auto prop = std::find_if(queueFamilyProperties.begin(), queueFamilyProperties.end(), 
+			[](vk::QueueFamilyProperties const& qfp) {return qfp.queueFlags & vk::QueueFlagBits::eGraphics; });
+		
+		return static_cast<uint32_t>(std::distance(queueFamilyProperties.begin(), prop));
 	}
 
-	bool VulkanUtility::IsDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface, std::vector<const char*> deviceExtensions)
+	// TODO use this and implement proper device scoring
+	bool VulkanUtility::IsDeviceSuitable(vk::raii::PhysicalDevice device, VkSurfaceKHR surface, std::vector<const char*> deviceExtensions)
 	{
-		QueueFamilyIndices indices = VulkanUtility::FindQueueFamilies(device, surface);
+		auto props = device.getProperties();
+		auto features = device.getFeatures();
 
-		bool extensionsSupported = CheckDeviceExtensionSupport(device, deviceExtensions);
-
-		bool swapChainAdequate = false;
-		if (extensionsSupported) {
-			SwapchainSupportDetails swapChainSupport = QuerySwapChainSupport(device, surface);
-			swapChainAdequate = !swapChainSupport.mFormats.empty() && !swapChainSupport.mPresentModes.empty();
-		}
-
-		VkPhysicalDeviceFeatures supportedFeatures{};
-		vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
-
-		return indices.IsComplete()
-			&& extensionsSupported
-			&& swapChainAdequate
-			&& supportedFeatures.samplerAnisotropy;
+		return (props.deviceType == vk::PhysicalDeviceType::eDiscreteGpu && features.geometryShader);
 	}
 
 	bool VulkanUtility::CheckDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char*> deviceExtensions) {
@@ -400,7 +365,7 @@ namespace OtterEngine {
 		return availableFormats[0];
 	}
 
-	VkExtent2D VulkanUtility::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* window) {
+	VkExtent2D VulkanUtility::ChooseSwapExtent(const vk::SurfaceCapabilitiesKHR& capabilities, GLFWwindow* window) {
 		if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
 			return capabilities.currentExtent;
 		}

@@ -3,14 +3,6 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_raii.hpp>
-#include <cmath>
-
-#include <optional>
-
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include "glm/glm.hpp"
 
 #include "Rendering/Vertex.h"
 #include "Rendering/Vulkan/VulkanDebugger.h"
@@ -18,7 +10,7 @@
 #include "Rendering/IRenderer.h"
 
 namespace OtterEngine {
-	class VulkanRenderer : public IRenderer { 
+	class VulkanRenderer : public IRenderer {
 	public:
 		struct UniformBufferObject {
 			alignas(16) glm::mat4 model;
@@ -31,31 +23,41 @@ namespace OtterEngine {
 		vk::raii::Context mContext;
 		vk::raii::Instance mInstance = nullptr;
 
-		VkPhysicalDevice mPhysicalDevice = VK_NULL_HANDLE;
-		
-		VkSurfaceKHR mSurface = VK_NULL_HANDLE;
-		
+		vk::raii::PhysicalDevice mPhysicalDevice = nullptr;
+		vk::raii::Device mDevice = nullptr;
+
+		vk::raii::SurfaceKHR mSurface = nullptr;
+		vk::raii::Queue mGraphicsQueue = nullptr;
+
+		vk::raii::SwapchainKHR mSwapchain = nullptr;
+
+
 		static constexpr uint32_t MAX_ONGOING_FRAMES = 2;
 
+		static constexpr bool mEnableValidationLayers =
 #ifdef NDEBUG
-		const bool mEnableValidationLayers = false;
+			false;
 #else
-		const bool mEnableValidationLayers = true;
+			true;
 #endif
+
 		const std::vector<const char*> mValidationLayers = {
 		"VK_LAYER_KHRONOS_validation"
 		};
-		const std::vector<const char*> mDeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
-		VkQueue mGraphicsQueue = VK_NULL_HANDLE;
-		VkQueue mPresentQueue = VK_NULL_HANDLE;
+		const std::vector<const char*> mDeviceExtensions = {
+			vk::KHRSwapchainExtensionName,
+			vk::KHRSpirv14ExtensionName,
+			vk::KHRSynchronization2ExtensionName,
+			vk::KHRCreateRenderpass2ExtensionName };
 
-		VkSwapchainKHR mSwapchain = VK_NULL_HANDLE;
 		std::vector<VkImage> mSwapchainImages;
 		std::vector<VkImageView> mSwapchainImageViews;
 		std::vector<VkFramebuffer> mSwapchainFramebuffers;
 		VkFormat mSwapchainImageFormat;
-		VkExtent2D mSwapchainExtent;
+		
+		
+		vk::Extent2D mSwapchainExtent;
 
 		VkRenderPass mRenderPass;
 		VkDescriptorSetLayout mDescriptorSetLayout = VK_NULL_HANDLE;
@@ -102,7 +104,7 @@ namespace OtterEngine {
 
 		void CreateTextureLoader();
 		void CreateMeshLoader();
-		
+
 		void CreateUniformBuffers();
 		void CreateDescriptorPool();
 		void CreateDescriptorSets();
@@ -123,11 +125,13 @@ namespace OtterEngine {
 
 		// Debugging and utilities
 		void SetupDebugMessenger();
+		std::vector<const char*> GetRequiredExtensions();
+
 	public:
 		explicit VulkanRenderer(GLFWwindow* window);
 		~VulkanRenderer() override;
 
-		void Init() override; 
+		void Init() override;
 		void Clear() override;
 		void DrawFrame() override;
 	};
